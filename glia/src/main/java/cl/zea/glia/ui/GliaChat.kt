@@ -1,5 +1,10 @@
 package cl.zea.glia.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,6 +28,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -58,6 +65,9 @@ fun GliaChat(
     theme: GliaTheme = GliaTheme(),
     systemPrompt: String? = null,
     tools: List<GliaToolDefinition> = emptyList(),
+    disconnectOnDispose: Boolean = false,
+    pendingPrompt: String? = null,
+    onPromptConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -67,14 +77,32 @@ fun GliaChat(
     DisposableEffect(viewModel) {
         viewModel.connect()
         onDispose {
-            viewModel.disconnect()
+            if (disconnectOnDispose) {
+                viewModel.disconnect()
+            }
         }
     }
 
-    LaunchedEffect(uiState.messages.size, uiState.isStreaming) {
-        val total = uiState.messages.size + if (uiState.isStreaming) 1 else 0
-        if (total > 0) {
-            listState.animateScrollToItem(total - 1)
+    LaunchedEffect(pendingPrompt) {
+        val prompt = pendingPrompt
+        if (!prompt.isNullOrBlank()) {
+            viewModel.send(prompt, systemPrompt, tools)
+            onPromptConsumed()
+        }
+    }
+
+    // Auto-scroll optimizado: Animado al agregar mensaje nuevo
+    LaunchedEffect(uiState.messages.size) {
+        if (uiState.messages.isNotEmpty()) {
+            listState.animateScrollToItem(uiState.messages.size - 1)
+        }
+    }
+
+    // Auto-scroll directo (sin animación pesada) durante streaming rápido de tokens
+    LaunchedEffect(uiState.currentText) {
+        if (uiState.isStreaming) {
+            val totalItems = uiState.messages.size + 1
+            listState.scrollToItem(totalItems - 1)
         }
     }
 
@@ -248,7 +276,7 @@ private fun MessageBubble(message: GliaChatMessage, theme: GliaTheme) {
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             if (!message.thinking.isNullOrBlank()) {
-                ThinkingBlock(thinking = message.thinking, theme = theme)
+                CollapsibleThinkingBlock(thinking = message.thinking, theme = theme)
                 Spacer(modifier = Modifier.height(6.dp))
             }
             if (!message.toolName.isNullOrBlank()) {
@@ -259,6 +287,60 @@ private fun MessageBubble(message: GliaChatMessage, theme: GliaTheme) {
                 text = message.content,
                 color = if (isUser) theme.userBubbleText else theme.agentBubbleText,
                 fontSize = 15.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun CollapsibleThinkingBlock(thinking: String, theme: GliaTheme) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(theme.thinkingBg)
+            .border(1.dp, theme.thinkingBorder, RoundedCornerShape(8.dp))
+            .clickable { isExpanded = !isExpanded }
+            .padding(8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Default.Psychology,
+                contentDescription = null,
+                tint = theme.thinkingText,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Proceso de razonamiento",
+                color = theme.thinkingText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (isExpanded) "Colapsar" else "Expandir",
+                tint = theme.thinkingText,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Text(
+                text = thinking,
+                color = theme.textMuted,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 6.dp)
             )
         }
     }
@@ -276,7 +358,26 @@ private fun LiveStreamingBlock(
         horizontalAlignment = Alignment.Start
     ) {
         if (thinking.isNotBlank()) {
-            ThinkingBlock(thinking = thinking, theme = theme)
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(theme.thinkingBg)
+                    .border(1.dp, theme.thinkingBorder, RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    color = theme.thinkingText,
+                    strokeWidth = 1.5.dp
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = thinking,
+                    color = theme.thinkingText,
+                    fontSize = 12.sp
+                )
+            }
         }
         if (!toolName.isNullOrBlank()) {
             ToolChip(name = toolName, theme = theme)
@@ -295,31 +396,6 @@ private fun LiveStreamingBlock(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun ThinkingBlock(thinking: String, theme: GliaTheme) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(theme.thinkingBg)
-            .border(1.dp, theme.thinkingBorder, RoundedCornerShape(8.dp))
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Default.Psychology,
-            contentDescription = null,
-            tint = theme.thinkingText,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = thinking,
-            color = theme.thinkingText,
-            fontSize = 12.sp
-        )
     }
 }
 
