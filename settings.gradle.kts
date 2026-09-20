@@ -14,4 +14,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "glia-sdk-kotlin"
-include(":glia")
+include(":glia", ":sample")
