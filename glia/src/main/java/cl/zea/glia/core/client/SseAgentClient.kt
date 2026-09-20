@@ -38,11 +38,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /**
- * Implementación de GliaClientProtocol para conectarse a plataformas agénticas externas
- * basadas en HTTP Server-Sent Events (SSE / text/event-stream), tales como:
+ * Implementation of GliaClientProtocol to connect to external agentic platforms
+ * based on HTTP Server-Sent Events (SSE / text/event-stream), such as:
  * - Dify.ai (/v1/chat-messages)
  * - LangGraph / LangChain Cloud
- * - OpenAI Assistants / Chat Completions con streaming
+ * - OpenAI Assistants / Chat Completions with streaming
  */
 class SseAgentClient(
     val options: GliaOptions,
@@ -76,7 +76,7 @@ class SseAgentClient(
 
     override suspend fun send(prompt: String, systemPrompt: String?, tools: List<GliaToolDefinition>) {
         if (!_isConnected.value) {
-            throw GliaException.NotConnected("Cliente SSE desconectado")
+            throw GliaException.NotConnected("SSE client is not connected")
         }
 
         val trimmed = prompt.trim()
@@ -213,7 +213,7 @@ class SseAgentClient(
                 }
             }
 
-            // 3. Fallback genérico
+            // 3. Generic fallback
             val text = element["text"]?.jsonPrimitive?.content
                 ?: element["content"]?.jsonPrimitive?.content
                 ?: element["message"]?.jsonPrimitive?.content
@@ -221,7 +221,7 @@ class SseAgentClient(
                 onDelta(text, false)
             }
         } catch (e: Exception) {
-            _events.emit(GliaStreamEvent.Error("Error al parsear evento SSE: ${e.localizedMessage ?: e.message}"))
+            _events.emit(GliaStreamEvent.Error("Error parsing SSE event: ${e.localizedMessage ?: e.message}"))
         }
     }
 

@@ -83,30 +83,30 @@ class GliaChatViewModelTest {
 
         assertTrue(viewModel.uiState.value.isConnected)
 
-        viewModel.send("Hola")
+        viewModel.send("Hello")
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, viewModel.uiState.value.messages.size)
-        assertEquals("Hola", viewModel.uiState.value.messages[0].content)
+        assertEquals("Hello", viewModel.uiState.value.messages[0].content)
         assertTrue(viewModel.uiState.value.isStreaming)
 
-        mockClient.emit(GliaStreamEvent.ThinkingDelta("Pensando..."))
+        mockClient.emit(GliaStreamEvent.ThinkingDelta("Thinking..."))
         testDispatcher.scheduler.advanceUntilIdle()
-        assertEquals("Pensando...", viewModel.uiState.value.currentThinking)
+        assertEquals("Thinking...", viewModel.uiState.value.currentThinking)
 
-        mockClient.emit(GliaStreamEvent.MessageDelta("Respuesta "))
-        mockClient.emit(GliaStreamEvent.MessageDelta("completa."))
+        mockClient.emit(GliaStreamEvent.MessageDelta("Complete "))
+        mockClient.emit(GliaStreamEvent.MessageDelta("response."))
         testDispatcher.scheduler.advanceUntilIdle()
-        assertEquals("Respuesta completa.", viewModel.uiState.value.currentText)
+        assertEquals("Complete response.", viewModel.uiState.value.currentText)
 
-        mockClient.emit(GliaStreamEvent.Done("Respuesta completa."))
+        mockClient.emit(GliaStreamEvent.Done("Complete response."))
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isStreaming)
         assertEquals(2, viewModel.uiState.value.messages.size)
         assertEquals(GliaMessageRole.ASSISTANT, viewModel.uiState.value.messages[1].role)
-        assertEquals("Respuesta completa.", viewModel.uiState.value.messages[1].content)
-        assertEquals("Pensando...", viewModel.uiState.value.messages[1].thinking)
+        assertEquals("Complete response.", viewModel.uiState.value.messages[1].content)
+        assertEquals("Thinking...", viewModel.uiState.value.messages[1].thinking)
     }
 
     @Test
@@ -117,7 +117,7 @@ class GliaChatViewModelTest {
         viewModel.connect()
         testDispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.send("Consulta mi saldo")
+        viewModel.send("Check my balance")
         testDispatcher.scheduler.advanceUntilIdle()
 
         mockClient.emit(GliaStreamEvent.ToolCall("check_balance", emptyMap()))
@@ -128,7 +128,7 @@ class GliaChatViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
         assertNull(viewModel.uiState.value.currentTool)
 
-        mockClient.emit(GliaStreamEvent.Done("Tu saldo es $100.000 CLP"))
+        mockClient.emit(GliaStreamEvent.Done("Your balance is $100 USD"))
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(2, viewModel.uiState.value.messages.size)
@@ -144,23 +144,23 @@ class GliaChatViewModelTest {
         viewModel.connect()
         testDispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.send("Primer mensaje")
+        viewModel.send("First message")
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.isStreaming)
         assertEquals(1, mockClient.sentPrompts.size)
 
-        // Intento de envío concurrente debe ser ignorado
-        viewModel.send("Segundo mensaje concurrente")
+        // Concurrent send attempt must be ignored
+        viewModel.send("Second concurrent message")
         testDispatcher.scheduler.advanceUntilIdle()
         assertEquals(1, mockClient.sentPrompts.size)
 
-        mockClient.emit(GliaStreamEvent.Done("Respuesta al primero"))
+        mockClient.emit(GliaStreamEvent.Done("Response to first"))
         testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(viewModel.uiState.value.isStreaming)
 
-        // Ahora sí debe permitir enviar
-        viewModel.send("Tercer mensaje")
+        // Now sending should be allowed
+        viewModel.send("Third message")
         testDispatcher.scheduler.advanceUntilIdle()
         assertEquals(2, mockClient.sentPrompts.size)
     }
@@ -203,8 +203,8 @@ class GliaChatViewModelTest {
         val json = Json { prettyPrint = true }
         val message = GliaChatMessage(
             role = GliaMessageRole.ASSISTANT,
-            content = "Hola",
-            thinking = "Razonamiento...",
+            content = "Hello",
+            thinking = "Reasoning...",
             toolName = "search"
         )
 

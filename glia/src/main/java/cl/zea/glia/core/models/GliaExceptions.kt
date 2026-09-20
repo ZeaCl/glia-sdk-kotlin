@@ -1,7 +1,7 @@
 package cl.zea.glia.core.models
 
 /**
- * Jerarquía de excepciones tipadas emitidas por el Glia SDK.
+ * Hierarchy of typed exceptions emitted by the Glia SDK.
  */
 sealed class GliaException(message: String, cause: Throwable? = null) : Exception(message, cause) {
     class InvalidURL(val url: String) : GliaException("Invalid Glia gateway URL: $url")

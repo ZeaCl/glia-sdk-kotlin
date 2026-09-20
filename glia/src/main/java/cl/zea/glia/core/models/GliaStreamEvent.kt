@@ -3,7 +3,7 @@ package cl.zea.glia.core.models
 import kotlinx.serialization.json.JsonElement
 
 /**
- * Eventos emitidos en tiempo real por el runtime de Glia a través de WebSocket.
+ * Real-time streaming events emitted by the Glia runtime.
  */
 sealed class GliaStreamEvent {
     data class Status(val status: String) : GliaStreamEvent()

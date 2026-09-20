@@ -1,137 +1,137 @@
-# 📋 Requerimientos de Paridad: Glia Kotlin SDK vs Glia Swift SDK
+# 📋 Parity Requirements: Glia Kotlin SDK vs Glia Swift SDK
 
-Este documento establece los requerimientos formales necesarios para alcanzar el 100% de paridad funcional, arquitectural y de resiliencia entre **`glia-sdk-kotlin`** y la versión de producción de **`glia-sdk-swift`** (`v1.0.1`).
-
----
-
-## 1. Módulo Core y Protocolo Phoenix (`cl.zea.glia.core`)
-
-### REQ-CORE-01: Handshake `phx_join` Sincrónico y Tipado
-- **Descripción:** `GliaClient.connect()` debe suspenderse hasta recibir la confirmación `phx_reply` con `status: "ok"` del servidor.
-- **Criterio de Aceptación:**
-  - Si el servidor responde `status: "ok"`, `connect()` finaliza exitosamente y `isConnected` pasa a `true`.
-  - Si el servidor responde `status: "error"` (e.g. token inválido o expirado), `connect()` lanza `GliaException.JoinFailed(reason)`.
-  - Si no hay respuesta tras `timeoutMs` (por defecto 60s), lanza `GliaException.ConnectionTimeout`.
-  - No marcar `isConnected = true` prematuramente antes de la confirmación del servidor.
-
-### REQ-CORE-02: Manejo de Frames `phx_reply`
-- **Descripción:** El loop de lectura de frames de Phoenix debe interceptar los mensajes con evento `"phx_reply"`.
-- **Criterio de Aceptación:**
-  - Correlacionar el frame con el `ref` enviado en el join o en peticiones RPC mediante un mapa de `CompletableDeferred`.
-  - Desbloquear la llamada suspendida correspondiente.
-
-### REQ-CORE-03: Paridad de Contrato en Evento `done`
-- **Descripción:** El backend Elixir (`GliaWeb.SessionChannel`) emite `{:done, response} -> push(socket, "done", %{text: response})`, mientras que versiones legacy emitían `full_message`.
-- **Criterio de Aceptación:**
-  - El parsing del evento `done` debe priorizar `payload["text"]` y tener fallback a `payload["full_message"]`.
-
-### REQ-CORE-04: Manejo de Desconexión Voluntaria vs Involuntaria
-- **Descripción:** Distinguir cuando la desconexión fue invocada explícitamente mediante `client.disconnect()`.
-- **Criterio de Aceptación:**
-  - Si la desconexión es voluntaria, no emitir `GliaStreamEvent.Error` ni activar reintentos de reconexión.
-  - Cancelar tareas de heartbeat y reconexión de forma limpia.
-
-### REQ-CORE-05: Desacoplamiento de Transporte WebSocket (DIP)
-- **Descripción:** Abstraer el cliente WebSocket de Ktor/OkHttp tras una interfaz para permitir testing unitario determinista en memoria.
-- **Criterio de Aceptación:**
-  - Crear interfaz `WebSocketConnection` / `WebSocketSessionFactory`.
-  - Implementación por defecto basada en Ktor/OkHttp.
-  - Implementación mockeable para pruebas sin abrir sockets reales.
+This document establishes the formal requirements necessary to achieve 100% functional, architectural, and resilience parity between **`glia-sdk-kotlin`** and the production release of **`glia-sdk-swift`** (`v1.0.1`).
 
 ---
 
-## 2. Modelos de Datos y Serialización (`cl.zea.glia.core.models`)
+## 1. Core Module and Phoenix Protocol (`cl.zea.glia.core`)
 
-### REQ-DATA-01: Serialización de Modelos de Chat con `kotlinx.serialization`
-- **Descripción:** `GliaChatMessage` y `GliaMessageRole` deben ser serializables para permitir persistencia en almacenamiento local (Room, DataStore, JSON en disco).
-- **Criterio de Aceptación:**
-  - Anotar con `@Serializable`.
-  - Incluir `timestamp: Long = System.currentTimeMillis()`.
+### REQ-CORE-01: Synchronous & Typed `phx_join` Handshake
+- **Description:** `GliaClient.connect()` must suspend until receiving the `phx_reply` acknowledgement with `status: "ok"` from the server.
+- **Acceptance Criteria:**
+  - If the server replies `status: "ok"`, `connect()` completes successfully and `isConnected` transitions to `true`.
+  - If the server replies `status: "error"` (e.g., invalid or expired token), `connect()` throws `GliaException.JoinFailed(reason)`.
+  - If no reply is received after `timeoutMs` (default 60s), throws `GliaException.ConnectionTimeout`.
+  - Do not flag `isConnected = true` prematurely before server acknowledgement.
 
-### REQ-DATA-02: Configuración de Timeouts en `GliaOptions`
-- **Descripción:** Parámetros de tiempo límite configurables.
-- **Criterio de Aceptación:**
-  - Campo `timeoutMs: Long = 60_000L` para control de join y operaciones.
+### REQ-CORE-02: `phx_reply` Frame Handling
+- **Description:** The Phoenix frame reading loop must intercept messages with the `"phx_reply"` event.
+- **Acceptance Criteria:**
+  - Correlate the frame with the `ref` sent during join or RPC requests via a map of `CompletableDeferred`.
+  - Unblock the corresponding suspended call.
+
+### REQ-CORE-03: Contract Parity in `done` Event
+- **Description:** The Elixir backend (`GliaWeb.SessionChannel`) emits `{:done, response} -> push(socket, "done", %{text: response})`, while legacy versions emitted `full_message`.
+- **Acceptance Criteria:**
+  - The parsing of `done` must prioritize `payload["text"]` with fallback to `payload["full_message"]`.
+
+### REQ-CORE-04: Voluntary vs Involuntary Disconnection Handling
+- **Description:** Distinguish when disconnection was explicitly triggered via `client.disconnect()`.
+- **Acceptance Criteria:**
+  - If disconnection is voluntary, do not emit `GliaStreamEvent.Error` or trigger reconnect retries.
+  - Cancel heartbeat and reconnection tasks cleanly.
+
+### REQ-CORE-05: WebSocket Transport Decoupling (DIP)
+- **Description:** Abstract the Ktor/OkHttp WebSocket client behind an interface for deterministic in-memory unit testing.
+- **Acceptance Criteria:**
+  - Define `WebSocketConnection` / `WebSocketConnectionFactory`.
+  - Default implementation backed by Ktor/OkHttp.
+  - Mockable implementation for testing without real network sockets.
 
 ---
 
-## 3. Capa de Presentación y Estado (`cl.zea.glia.ui.GliaChatViewModel`)
+## 2. Data Models and Serialization (`cl.zea.glia.core.models`)
 
-### REQ-VM-01: Protección contra Envíos Concurrentes (`isStreaming` Guard)
-- **Descripción:** Evitar que el usuario o la UI envíen múltiples prompts concurrentes mientras el asistente sigue respondiendo.
-- **Criterio de Aceptación:**
-  - Si `uiState.value.isStreaming == true`, ignorar cualquier llamada a `send()`.
+### REQ-DATA-01: Chat Model Serialization with `kotlinx.serialization`
+- **Description:** `GliaChatMessage` and `GliaMessageRole` must be serializable to support local storage (Room, DataStore, JSON on disk).
+- **Acceptance Criteria:**
+  - Annotate with `@Serializable`.
+  - Include `timestamp: Long = System.currentTimeMillis()`.
 
-### REQ-VM-02: Carga de Historial Inicial y Callback de Actualización
-- **Descripción:** Permitir inyectar mensajes previos y escuchar cambios en la lista de mensajes para persistencia.
-- **Criterio de Aceptación:**
-  - Constructor con `initialMessages: List<GliaChatMessage> = emptyList()`.
+### REQ-DATA-02: Timeout Configuration in `GliaOptions`
+- **Description:** Configurable timeout parameters.
+- **Acceptance Criteria:**
+  - Field `timeoutMs: Long = 60_000L` for join and operation timeouts.
+
+---
+
+## 3. Presentation and State Layer (`cl.zea.glia.ui.GliaChatViewModel`)
+
+### REQ-VM-01: Protection Against Concurrent Sends (`isStreaming` Guard)
+- **Description:** Prevent user or UI from dispatching multiple concurrent prompts while the assistant is streaming responses.
+- **Acceptance Criteria:**
+  - If `uiState.value.isStreaming == true`, ignore calls to `send()`.
+
+### REQ-VM-02: Initial History Loading and Update Callback
+- **Description:** Allow injecting previous messages and observing message list updates for persistence.
+- **Acceptance Criteria:**
+  - Constructor with `initialMessages: List<GliaChatMessage> = emptyList()`.
   - Callback `onMessagesUpdated: ((List<GliaChatMessage>) -> Unit)? = null`.
-  - Métodos `loadMessages(newMessages)` y `clearMessages()`.
-  - Disparar `onMessagesUpdated` al enviar mensaje de usuario y al completar mensaje de asistente.
+  - Methods `loadMessages(newMessages)` and `clearMessages()`.
+  - Trigger `onMessagesUpdated` on user message send and assistant message completion.
 
-### REQ-VM-03: Preservación de `toolName` en Burbuja Final
-- **Descripción:** Cuando se ejecuta una herramienta, `tool_call` fija el nombre, pero `tool_result` lo limpia. Al llegar `done`, el mensaje del asistente debe conservar la referencia de la herramienta que se ejecutó.
-- **Criterio de Aceptación:**
-  - Mantener variable `lastExecutedTool` en el ViewModel y asignarla al `GliaChatMessage` final del asistente.
-
----
-
-## 4. Componente Visual Jetpack Compose (`cl.zea.glia.ui.GliaChat`)
-
-### REQ-UI-01: Control de Desconexión en Ciclo de Vida (`disconnectOnDispose`)
-- **Descripción:** Evitar desconexiones accidentales al navegar entre pestañas o abrir diálogos/bottom sheets.
-- **Criterio de Aceptación:**
-  - Parámetro `disconnectOnDispose: Boolean = false` en `GliaChat`.
-
-### REQ-UI-02: Bloque de Razonamiento Colapsable (Thinking Accordion)
-- **Descripción:** Las respuestas de modelos de razonamiento (como DeepSeek-R1) generan textos extensos en `thinking_delta`.
-- **Criterio de Aceptación:**
-  - Encabezado colapsable "Proceso de razonamiento" con ícono cerebral y flecha de expansión.
-  - Colapsado por defecto en historial final, expandible a demanda.
-
-### REQ-UI-03: Soporte para `pendingPrompt`
-- **Descripción:** Permitir inyectar prompts desde vistas externas (e.g. deep links, atajos).
-- **Criterio de Aceptación:**
-  - Parámetro `pendingPrompt: String? = null` con `onPromptConsumed: () -> Unit`.
-
-### REQ-UI-04: Optimización del Scroll en Streaming
-- **Descripción:** Evitar animaciones continuas durante la llegada de deltas de texto rápidos.
-- **Criterio de Aceptación:**
-  - Scroll directo (`scrollToItem`) durante deltas continuos; `animateScrollToItem` solo al agregar nuevos mensajes.
+### REQ-VM-03: Preservation of `toolName` in Final Assistant Bubble
+- **Description:** When a tool executes, `tool_call` sets the tool name, but `tool_result` clears it. Upon `done`, the assistant message should retain the tool reference.
+- **Acceptance Criteria:**
+  - Track `lastExecutedTool` in ViewModel and assign it to the assistant's final `GliaChatMessage`.
 
 ---
 
-## 5. Pruebas Unitarias y Calidad CI/CD
+## 4. Jetpack Compose UI Component (`cl.zea.glia.ui.GliaChat`)
 
-### REQ-QA-01: Suite de Tests Unitarios Deterministas
-- **Criterio de Aceptación:**
-  - Tests para `GliaClient`: Handshake exitoso, error de autenticación (`unauthorized`), normalización de URLs, streaming parsing (`thinking_delta`, `message_delta`, `tool_call`, `done` con `text` y `full_message`), desconexión voluntaria.
-  - Tests para `GliaChatViewModel`: Conexión, acumulación de streaming, bloqueo de envíos concurrentes, preservación de `toolName`, serialización de mensajes.
+### REQ-UI-01: Lifecycle Disconnect Control (`disconnectOnDispose`)
+- **Description:** Prevent accidental disconnections when navigating tabs or opening bottom sheets.
+- **Acceptance Criteria:**
+  - Parameter `disconnectOnDispose: Boolean = false` in `GliaChat`.
 
-### REQ-CI-01: Pipeline GCP Cloud Build (`cloudbuild.yaml`)
-- **Criterio de Aceptación:**
-  - Ejecución de pruebas unitarias (`./gradlew testDebugUnitTest`).
-  - Escaneo de seguridad y cumplimiento con `microglia scan . --details`.
+### REQ-UI-02: Collapsible Reasoning Block (Thinking Accordion)
+- **Description:** Reasoning model outputs generate verbose text in `thinking_delta`.
+- **Acceptance Criteria:**
+  - Collapsible header "Reasoning Process" with psychology icon and chevron.
+  - Collapsed by default in historical messages, expandable on demand.
+
+### REQ-UI-03: Support for `pendingPrompt`
+- **Description:** Allow injecting prompts from external views (e.g. deep links, shortcuts).
+- **Acceptance Criteria:**
+  - Parameter `pendingPrompt: String? = null` with `onPromptConsumed: () -> Unit`.
+
+### REQ-UI-04: Streaming Scroll Optimization
+- **Description:** Avoid continuous heavy animations during rapid incoming text tokens.
+- **Acceptance Criteria:**
+  - Direct scroll (`scrollToItem`) during continuous deltas; `animateScrollToItem` only when new messages are added.
 
 ---
 
-## 6. Arquitectura Multi-Backend (Conectores Agénticos)
+## 5. Unit Testing and CI/CD Quality
 
-### REQ-BACKEND-01: Abstracción de Transporte de Agentes (`GliaBackendType`)
-- **Descripción:** El SDK debe permitir conectarse no solo a ZEA Glia (Phoenix Channels), sino también a backends de agentes externos basados en HTTP Server-Sent Events (SSE) y streaming estándar (Dify.ai, LangGraph, OpenAI Assistants).
-- **Criterio de Aceptación:**
-  - `GliaClientProtocol` se mantiene como contrato universal agnóstico.
-  - Soportar enum/configuración:
+### REQ-QA-01: Deterministic Unit Test Suite
+- **Acceptance Criteria:**
+  - Tests for `GliaClient`: Successful handshake, unauthorized error, URL normalization, streaming parsing (`thinking_delta`, `message_delta`, `tool_call`, `done`), voluntary disconnection.
+  - Tests for `GliaChatViewModel`: Connection, delta accumulation, concurrent send guard, toolName preservation, message serialization.
+
+### REQ-CI-01: GCP Cloud Build Pipeline (`cloudbuild.yaml`)
+- **Acceptance Criteria:**
+  - Execute unit tests (`./gradlew testDebugUnitTest`).
+  - Security audit with `microglia scan . --sarif reports/microglia.sarif`.
+
+---
+
+## 6. Multi-Backend Architecture (Agent Connectors)
+
+### REQ-BACKEND-01: Agent Transport Abstraction (`GliaBackendType`)
+- **Description:** The SDK must connect not only to ZEA Glia (Phoenix Channels), but also to external agent backends based on HTTP Server-Sent Events (SSE) and standard streaming (Dify.ai, LangGraph, OpenAI Assistants).
+- **Acceptance Criteria:**
+  - `GliaClientProtocol` remains the universal agnostic contract.
+  - Support configuration enum:
     ```kotlin
     enum class GliaBackendType {
-        PHOENIX, // Glia Elixir runtime (por defecto)
+        PHOENIX, // Glia Elixir runtime (default)
         SSE      // Dify, LangGraph, OpenAI SSE
     }
     ```
-  - `PhoenixAgentClient`: Implementación basada en Phoenix Channels v2.
-  - `SseAgentClient`: Implementación basada en HTTP `text/event-stream` que mapea eventos entrantes a `GliaStreamEvent`.
-  - Factory en `GliaClient`:
+  - `PhoenixAgentClient`: Implementation based on Phoenix Channels v2.
+  - `SseAgentClient`: Implementation based on HTTP `text/event-stream` mapping incoming events to `GliaStreamEvent`.
+  - Factory in `GliaClient`:
     ```kotlin
     val client = GliaClient.create(options, backendType = GliaBackendType.PHOENIX)
     ```

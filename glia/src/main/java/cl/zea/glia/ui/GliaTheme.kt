@@ -3,7 +3,7 @@ package cl.zea.glia.ui
 import androidx.compose.ui.graphics.Color
 
 /**
- * Paleta de colores agnóstica y completamente personalizable para GliaChat.
+ * Completely customizable and agnostic color theme palette for GliaChat.
  */
 data class GliaTheme(
     val bg: Color = Color(0xFF121212),

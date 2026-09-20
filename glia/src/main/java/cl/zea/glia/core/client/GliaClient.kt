@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Contrato universal agnóstico para cualquier cliente de agente en Glia.
+ * Universal agnostic protocol for any Glia agent client.
  */
 interface GliaClientProtocol : Closeable {
     val isConnected: StateFlow<Boolean>
@@ -49,7 +49,7 @@ interface GliaClientProtocol : Closeable {
 }
 
 /**
- * Implementación oficial para el runtime de Glia basado en Phoenix Channels v2 (Elixir).
+ * Official client implementation for Glia agentic runtime based on Phoenix Channels v2 (Elixir).
  */
 open class PhoenixAgentClient(
     val options: GliaOptions,
@@ -83,7 +83,7 @@ open class PhoenixAgentClient(
 
             if (_isConnected.value && connection != null) return
 
-            // Limpiar conexión previa si existía
+            // Clean up previous connection if it existed
             cancelInternalConnection()
 
             try {
@@ -175,16 +175,16 @@ open class PhoenixAgentClient(
     private fun handleUnexpectedDisconnection(error: Exception) {
         cancelInternalConnection()
         scope.launch {
-            _events.emit(GliaStreamEvent.Error("Error de WebSocket: ${error.localizedMessage ?: "desconexión"}"))
+            _events.emit(GliaStreamEvent.Error("WebSocket error: ${error.localizedMessage ?: "disconnection"}"))
         }
 
-        // Falla continuations pendientes
+        // Fail pending continuations
         for ((_, deferred) in pendingReplies) {
-            deferred.completeExceptionally(GliaException.ConnectionClosed(error.localizedMessage ?: "desconexión"))
+            deferred.completeExceptionally(GliaException.ConnectionClosed(error.localizedMessage ?: "disconnection"))
         }
         pendingReplies.clear()
 
-        // Reconexión automática con backoff exponencial
+        // Automatic reconnection with exponential backoff
         if (options.autoReconnect && reconnectAttempts < options.maxReconnectAttempts) {
             scheduleReconnect()
         }
@@ -264,7 +264,7 @@ open class PhoenixAgentClient(
             val element = json.parseToJsonElement(text)
             val root = element as? JsonArray
             if (root == null || root.size < 5) {
-                _events.emit(GliaStreamEvent.Error("Formato de mensaje inválido del servidor: se esperaba un array de 5 elementos"))
+                _events.emit(GliaStreamEvent.Error("Invalid server message format: expected 5-element array"))
                 return
             }
 
@@ -272,7 +272,7 @@ open class PhoenixAgentClient(
             val event = root[3].jsonPrimitive.content
             val payload = root[4] as? JsonObject
             if (payload == null) {
-                _events.emit(GliaStreamEvent.Error("Payload de mensaje inválido del servidor"))
+                _events.emit(GliaStreamEvent.Error("Invalid server message payload"))
                 return
             }
 
@@ -317,18 +317,18 @@ open class PhoenixAgentClient(
                     _events.emit(GliaStreamEvent.ToolResult(name, result))
                 }
                 "done" -> {
-                    // Paridad de contrato: leer payload["text"] (backend Elixir actual) y payload["full_message"] (legado)
+                    // Contract parity: read payload["text"] (Elixir backend) and payload["full_message"] (legacy)
                     val fullMsg = payload["text"]?.jsonPrimitive?.content
                         ?: payload["full_message"]?.jsonPrimitive?.content
                     _events.emit(GliaStreamEvent.Done(fullMsg))
                 }
                 "error" -> {
-                    val msg = payload["message"]?.jsonPrimitive?.content ?: "Error desconocido"
+                    val msg = payload["message"]?.jsonPrimitive?.content ?: "Unknown error"
                     _events.emit(GliaStreamEvent.Error(msg))
                 }
             }
         } catch (e: Exception) {
-            _events.emit(GliaStreamEvent.Error("Error al procesar mensaje del servidor: ${e.localizedMessage ?: e.message}"))
+            _events.emit(GliaStreamEvent.Error("Error processing server message: ${e.localizedMessage ?: e.message}"))
         }
     }
 
@@ -339,9 +339,9 @@ open class PhoenixAgentClient(
 
         cancelInternalConnection()
 
-        // Cancelar continuations pendientes sin emitir error
+        // Cancel pending continuations without emitting error
         for ((_, deferred) in pendingReplies) {
-            deferred.completeExceptionally(GliaException.ConnectionClosed("Desconexión voluntaria"))
+            deferred.completeExceptionally(GliaException.ConnectionClosed("Voluntary disconnection"))
         }
         pendingReplies.clear()
     }
@@ -352,8 +352,8 @@ open class PhoenixAgentClient(
 }
 
 /**
- * Cliente principal de Glia. Implementa composición sobre herencia delegando
- * en la implementación adecuada según [GliaOptions.backendType].
+ * Main Glia client. Implements composition over inheritance delegating
+ * to the appropriate implementation according to [GliaOptions.backendType].
  */
 class GliaClient private constructor(
     private val delegate: GliaClientProtocol

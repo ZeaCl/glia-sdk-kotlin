@@ -58,9 +58,9 @@ import cl.zea.glia.core.models.GliaToolDefinition
 @Composable
 fun GliaChat(
     viewModel: GliaChatViewModel,
-    title: String? = "Asistente AI",
-    welcomeMessage: String = "¡Hola! ¿En qué te puedo ayudar hoy?",
-    placeholder: String = "Escribe un mensaje...",
+    title: String? = "AI Assistant",
+    welcomeMessage: String = "Hello! How can I help you today?",
+    placeholder: String = "Type a message...",
     suggestedPrompts: List<String> = emptyList(),
     theme: GliaTheme = GliaTheme(),
     systemPrompt: String? = null,
@@ -91,14 +91,14 @@ fun GliaChat(
         }
     }
 
-    // Auto-scroll optimizado: Animado al agregar mensaje nuevo
+    // Optimized auto-scroll: Animated on new message addition
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
     }
 
-    // Auto-scroll directo (sin animación pesada) durante streaming rápido de tokens
+    // Direct auto-scroll (without heavy animation) during rapid token streaming
     LaunchedEffect(uiState.currentText) {
         if (uiState.isStreaming) {
             val totalItems = uiState.messages.size + 1
@@ -317,7 +317,7 @@ private fun CollapsibleThinkingBlock(thinking: String, theme: GliaTheme) {
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Proceso de razonamiento",
+                text = "Reasoning Process",
                 color = theme.thinkingText,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
@@ -325,7 +325,7 @@ private fun CollapsibleThinkingBlock(thinking: String, theme: GliaTheme) {
             )
             Icon(
                 imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                contentDescription = if (isExpanded) "Colapsar" else "Expandir",
+                contentDescription = if (isExpanded) "Collapse" else "Expand",
                 tint = theme.thinkingText,
                 modifier = Modifier.size(16.dp)
             )
@@ -416,7 +416,7 @@ private fun ToolChip(name: String, theme: GliaTheme) {
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
-            text = "Acción: $name",
+            text = "Tool: $name",
             color = theme.textMuted,
             fontSize = 12.sp
         )
@@ -467,7 +467,7 @@ private fun InputArea(
             } else {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Enviar",
+                    contentDescription = "Send",
                     tint = if (text.isNotBlank()) theme.primary else theme.textMuted
                 )
             }

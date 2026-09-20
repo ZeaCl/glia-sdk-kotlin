@@ -14,8 +14,8 @@ import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import java.io.Closeable
 
 /**
- * Abstracción del transporte WebSocket para desacoplar GliaClient de Ktor
- * y permitir pruebas unitarias deterministas en memoria (DIP / Clean Architecture).
+ * WebSocket transport abstraction to decouple GliaClient from Ktor
+ * and allow deterministic in-memory unit tests (DIP / Clean Architecture).
  */
 interface WebSocketConnection : Closeable {
     suspend fun send(text: String)
@@ -26,7 +26,7 @@ interface WebSocketConnection : Closeable {
 typealias WebSocketConnectionFactory = suspend (url: String, headers: Map<String, String>) -> WebSocketConnection
 
 /**
- * Implementación de producción respaldada por Ktor Client WebSocketSession.
+ * Production implementation backed by Ktor Client WebSocketSession.
  */
 class KtorWebSocketConnection(
     private val session: DefaultClientWebSocketSession

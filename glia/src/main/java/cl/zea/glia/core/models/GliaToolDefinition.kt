@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
 /**
- * Especificación declarativa de herramientas (Tools) dinámicas para el agente Glia.
+ * Declarative specification of dynamic tools for the Glia agent.
  */
 @Serializable
 data class GliaToolDefinition(

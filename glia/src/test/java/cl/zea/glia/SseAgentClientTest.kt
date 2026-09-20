@@ -22,13 +22,13 @@ class SseAgentClientTest {
     fun testSseDifyStreamParsing() = runBlocking {
         val ssePayload = """
             event: message
-            data: {"event": "message", "answer": "Hola "}
+            data: {"event": "message", "answer": "Hello "}
 
             event: agent_thought
-            data: {"event": "agent_thought", "thought": "Pensando..."}
+            data: {"event": "agent_thought", "thought": "Thinking..."}
 
             event: message
-            data: {"event": "message", "answer": "mundo"}
+            data: {"event": "message", "answer": "world"}
 
             data: [DONE]
         """.trimIndent()
@@ -61,7 +61,7 @@ class SseAgentClientTest {
             }
         }
 
-        client.send("Hola")
+        client.send("Hello")
         delay(150)
         job.cancel()
 
@@ -70,14 +70,14 @@ class SseAgentClientTest {
         val dones = events.filterIsInstance<GliaStreamEvent.Done>()
 
         assertEquals(2, deltas.size)
-        assertEquals("Hola ", deltas[0].content)
-        assertEquals("mundo", deltas[1].content)
+        assertEquals("Hello ", deltas[0].content)
+        assertEquals("world", deltas[1].content)
 
         assertEquals(1, thoughts.size)
-        assertEquals("Pensando...", thoughts[0].content)
+        assertEquals("Thinking...", thoughts[0].content)
 
         assertTrue(dones.isNotEmpty())
-        assertEquals("Hola mundo", dones[0].fullMessage)
+        assertEquals("Hello world", dones[0].fullMessage)
 
         client.disconnect()
     }

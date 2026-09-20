@@ -16,18 +16,23 @@ Official Android / Kotlin client SDK and Jetpack Compose UI components for **Gli
 
 ## 📦 Installation (Gradle)
 
-In your `settings.gradle.kts`:
+In your root `settings.gradle.kts`:
 
 ```kotlin
-include(":glia")
-project(":glia").projectDir = file("../glia-sdk-kotlin/glia")
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
 ```
 
 In your `app/build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation(project(":glia"))
+    implementation("com.github.ZeaCl:glia-sdk-kotlin:v0.1.0")
 }
 ```
 
@@ -42,7 +47,7 @@ import cl.zea.glia.core.client.GliaClient
 import cl.zea.glia.core.models.GliaOptions
 
 val options = GliaOptions(
-    gatewayUrl = "wss://glia.yourdomain.com",
+    gatewayUrl = "wss://gateway.yourdomain.com",
     appId = "your-app-id",
     userId = "user-12345",
     token = "jwt-bearer-token"
@@ -55,8 +60,8 @@ client.connect()
 
 // Send a prompt
 client.send(
-    prompt = "¿Cuál es el balance del fondo?",
-    systemPrompt = "Eres un asistente financiero."
+    prompt = "What is the status of the deployment?",
+    systemPrompt = "You are a helpful technical assistant."
 )
 
 // Observe events
@@ -86,12 +91,12 @@ import cl.zea.glia.ui.GliaTheme
 fun AssistantScreen(viewModel: GliaChatViewModel) {
     GliaChat(
         viewModel = viewModel,
-        title = "Mi Asistente",
-        welcomeMessage = "¡Hola! ¿En qué puedo ayudarte?",
-        placeholder = "Escribe tu consulta...",
+        title = "AI Assistant",
+        welcomeMessage = "Hello! How can I help you today?",
+        placeholder = "Type your message...",
         suggestedPrompts = listOf(
-            "Consultar estado de cuenta",
-            "Programar una reunión"
+            "Check system status",
+            "Schedule a meeting"
         ),
         theme = GliaTheme(
             primary = Color(0xFF2563EB),

@@ -78,7 +78,7 @@ class GliaChatViewModel(
             try {
                 client.connect()
             } catch (e: Exception) {
-                _uiState.update { it.copy(errorMessage = "Error al conectar con Glia: ${e.localizedMessage}") }
+                _uiState.update { it.copy(errorMessage = "Error connecting to Glia: ${e.localizedMessage}") }
             }
         }
     }
@@ -91,7 +91,7 @@ class GliaChatViewModel(
 
     fun send(prompt: String, systemPrompt: String? = null, tools: List<GliaToolDefinition> = emptyList()) {
         val trimmed = prompt.trim()
-        // Protección contra envíos concurrentes mientras el streaming está activo
+        // Guard against concurrent sends while streaming is active
         if (trimmed.isEmpty() || _uiState.value.isStreaming) return
 
         val userMsg = GliaChatMessage(role = GliaMessageRole.USER, content = trimmed)
@@ -114,7 +114,7 @@ class GliaChatViewModel(
             try {
                 client.send(prompt = trimmed, systemPrompt = systemPrompt, tools = tools)
             } catch (e: Exception) {
-                _uiState.update { it.copy(isStreaming = false, errorMessage = "Error al enviar: ${e.localizedMessage}") }
+                _uiState.update { it.copy(isStreaming = false, errorMessage = "Error sending message: ${e.localizedMessage}") }
             }
         }
     }
@@ -171,7 +171,7 @@ class GliaChatViewModel(
                 _uiState.update { it.copy(isStreaming = false, errorMessage = event.message) }
             }
             is GliaStreamEvent.Reconnecting -> {
-                // Notificación opcional de reconexión
+                // Optional reconnection notification
             }
         }
     }

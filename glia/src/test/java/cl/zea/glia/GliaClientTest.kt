@@ -29,22 +29,22 @@ class GliaClientTest {
     fun testGliaOptionsTopicAndUrl() {
         val options = GliaOptions(
             gatewayUrl = "http://localhost:4003",
-            appId = "nutrisnaps",
+            appId = "demo_app",
             userId = "user_123",
             token = "jwt_token"
         )
-        assertEquals("session:nutrisnaps:user_123", options.topic)
+        assertEquals("session:demo_app:user_123", options.topic)
         assertTrue(options.wsUrl.startsWith("ws://localhost:4003/socket/websocket"))
         assertTrue(options.wsUrl.contains("vsn=2.0.0"))
         assertFalse(options.wsUrl.contains("token="))
         assertEquals("Bearer jwt_token", options.effectiveHeaders["Authorization"])
 
         val secureOptions = GliaOptions(
-            gatewayUrl = "wss://glia.nutrisnaps.cl",
-            appId = "nutrisnaps",
+            gatewayUrl = "wss://gateway.example.com",
+            appId = "demo_app",
             userId = "user_123"
         )
-        assertTrue(secureOptions.wsUrl.startsWith("wss://glia.nutrisnaps.cl/socket/websocket"))
+        assertTrue(secureOptions.wsUrl.startsWith("wss://gateway.example.com/socket/websocket"))
     }
 
     @Test
@@ -54,7 +54,7 @@ class GliaClientTest {
         }
         val tool = GliaToolDefinition(
             name = "calculate_macro",
-            description = "Calcula macros de una comida",
+            description = "Calculate meal calories and macros",
             parameters = params,
             webhookUrl = "https://api.example.com/macros"
         )
@@ -78,7 +78,7 @@ class GliaClientTest {
             connectionFactory = { _, _ -> mockConn }
         )
 
-        // Simular respuesta del servidor phx_reply cuando llegue el join frame
+        // Simulate server phx_reply when join frame arrives
         val replyJob = launch(Dispatchers.IO) {
             delay(50)
             val replyJson = "[\"1\",\"1\",\"session:app1:usr1\",\"phx_reply\",{\"status\":\"ok\",\"response\":{}}]"
@@ -117,7 +117,7 @@ class GliaClientTest {
 
         try {
             client.connect()
-            fail("Debió fallar con GliaException.JoinFailed")
+            fail("Should have failed with GliaException.JoinFailed")
         } catch (e: GliaException.JoinFailed) {
             assertEquals("unauthorized", e.reason)
         }
@@ -197,29 +197,29 @@ class GliaClientTest {
         }
 
         delay(30)
-        mockConn.pushIncoming("[null,\"2\",\"session:app1:usr1\",\"thinking_delta\",{\"content\":\"Analizando...\"}]")
-        mockConn.pushIncoming("[null,\"3\",\"session:app1:usr1\",\"message_delta\",{\"content\":\"Hola \"}]")
-        mockConn.pushIncoming("[null,\"4\",\"session:app1:usr1\",\"message_delta\",{\"content\":\"mundo\"}]")
+        mockConn.pushIncoming("[null,\"2\",\"session:app1:usr1\",\"thinking_delta\",{\"content\":\"Analyzing...\"}]")
+        mockConn.pushIncoming("[null,\"3\",\"session:app1:usr1\",\"message_delta\",{\"content\":\"Hello \"}]")
+        mockConn.pushIncoming("[null,\"4\",\"session:app1:usr1\",\"message_delta\",{\"content\":\"world\"}]")
         mockConn.pushIncoming("[null,\"5\",\"session:app1:usr1\",\"tool_call\",{\"name\":\"search\",\"args\":{}}]")
         mockConn.pushIncoming("[null,\"6\",\"session:app1:usr1\",\"tool_result\",{\"name\":\"search\",\"result\":\"ok\"}]")
-        mockConn.pushIncoming("[null,\"7\",\"session:app1:usr1\",\"done\",{\"text\":\"Hola mundo\"}]")
+        mockConn.pushIncoming("[null,\"7\",\"session:app1:usr1\",\"done\",{\"text\":\"Hello world\"}]")
 
         delay(100)
         collectorJob.cancel()
 
         assertEquals(6, received.size)
         assertTrue(received[0] is GliaStreamEvent.ThinkingDelta)
-        assertEquals("Analizando...", (received[0] as GliaStreamEvent.ThinkingDelta).content)
+        assertEquals("Analyzing...", (received[0] as GliaStreamEvent.ThinkingDelta).content)
         assertTrue(received[1] is GliaStreamEvent.MessageDelta)
-        assertEquals("Hola ", (received[1] as GliaStreamEvent.MessageDelta).content)
+        assertEquals("Hello ", (received[1] as GliaStreamEvent.MessageDelta).content)
         assertTrue(received[2] is GliaStreamEvent.MessageDelta)
-        assertEquals("mundo", (received[2] as GliaStreamEvent.MessageDelta).content)
+        assertEquals("world", (received[2] as GliaStreamEvent.MessageDelta).content)
         assertTrue(received[3] is GliaStreamEvent.ToolCall)
         assertEquals("search", (received[3] as GliaStreamEvent.ToolCall).name)
         assertTrue(received[4] is GliaStreamEvent.ToolResult)
         assertEquals("search", (received[4] as GliaStreamEvent.ToolResult).name)
         assertTrue(received[5] is GliaStreamEvent.Done)
-        assertEquals("Hola mundo", (received[5] as GliaStreamEvent.Done).fullMessage)
+        assertEquals("Hello world", (received[5] as GliaStreamEvent.Done).fullMessage)
 
         client.disconnect()
     }
@@ -256,14 +256,14 @@ class GliaClientTest {
         }
 
         delay(30)
-        // Enviar JSON inválido / malformado
-        mockConn.pushIncoming("ESTO_NO_ES_UN_JSON_VALIDO")
+        // Send invalid / malformed JSON
+        mockConn.pushIncoming("THIS_IS_NOT_VALID_JSON")
 
         delay(100)
         collectorJob.cancel()
 
         assertTrue(errors.isNotEmpty())
-        assertTrue(errors[0].message.contains("inválido") || errors[0].message.contains("Error"))
+        assertTrue(errors[0].message.contains("Invalid") || errors[0].message.contains("Error"))
 
         client.disconnect()
     }
@@ -272,7 +272,7 @@ class GliaClientTest {
     fun testDelegationToSseBackend() = runBlocking {
         val options = GliaOptions(
             gatewayUrl = "https://api.dify.ai/v1/chat-messages",
-            appId = "nutrisnaps",
+            appId = "demo_app",
             userId = "usr1",
             backendType = cl.zea.glia.core.models.GliaBackendType.SSE
         )
