@@ -55,8 +55,10 @@ import cl.zea.glia.core.providers.sse.SseAgentProvider
 import cl.zea.glia.ui.GliaChat
 import cl.zea.glia.ui.GliaChatViewModel
 import cl.zea.glia.ui.GliaTheme
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,8 +74,10 @@ import kotlinx.serialization.json.put
  * Offline simulated agent provider generating realistic streaming responses,
  * reasoning deltas, and tool execution without requiring network credentials.
  */
-class MockEchoAgentProvider : AgentProvider {
-    private val scope = CoroutineScope(Dispatchers.Default)
+class MockEchoAgentProvider(
+    dispatcher: CoroutineDispatcher = Dispatchers.Default
+) : AgentProvider {
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     private val _isConnected = MutableStateFlow(true)
     override val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
