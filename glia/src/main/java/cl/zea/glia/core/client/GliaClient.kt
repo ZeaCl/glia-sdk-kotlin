@@ -12,6 +12,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -71,29 +73,32 @@ open class PhoenixAgentClient(
     private val messageRef = AtomicInteger(1)
     private val json = Json { ignoreUnknownKeys = true }
     private val pendingReplies = ConcurrentHashMap<String, CompletableDeferred<JsonObject>>()
+    private val connectMutex = Mutex()
 
     override suspend fun connect() {
-        reconnectJob?.cancel()
-        reconnectJob = null
-        isVoluntaryDisconnect = false
+        connectMutex.withLock {
+            reconnectJob?.cancel()
+            reconnectJob = null
+            isVoluntaryDisconnect = false
 
-        if (_isConnected.value && connection != null) return
+            if (_isConnected.value && connection != null) return
 
-        // Limpiar conexión previa si existía
-        cancelInternalConnection()
-
-        try {
-            val conn = connectionFactory(options.wsUrl, options.headers)
-            this.connection = conn
-
-            startReceiveLoop(conn)
-            joinChannel(conn)
-
-            reconnectAttempts = 0
-            startHeartbeat(conn)
-        } catch (e: Exception) {
+            // Limpiar conexión previa si existía
             cancelInternalConnection()
-            throw e
+
+            try {
+                val conn = connectionFactory(options.wsUrl, options.effectiveHeaders)
+                this.connection = conn
+
+                startReceiveLoop(conn)
+                joinChannel(conn)
+
+                reconnectAttempts = 0
+                startHeartbeat(conn)
+            } catch (e: Exception) {
+                cancelInternalConnection()
+                throw e
+            }
         }
     }
 
@@ -186,6 +191,7 @@ open class PhoenixAgentClient(
     }
 
     private fun scheduleReconnect() {
+        if (reconnectAttempts >= options.maxReconnectAttempts) return
         reconnectAttempts++
         val attempt = reconnectAttempts
         val delayFactor = 1L shl (attempt - 1).coerceAtMost(30)
@@ -199,7 +205,9 @@ open class PhoenixAgentClient(
             try {
                 connect()
             } catch (_: Exception) {
-                // Si falla, el siguiente reintento se maneja recursivamente o por maxReconnectAttempts
+                if (isActive && !isVoluntaryDisconnect && reconnectAttempts < options.maxReconnectAttempts) {
+                    scheduleReconnect()
+                }
             }
         }
     }
@@ -253,12 +261,20 @@ open class PhoenixAgentClient(
 
     private suspend fun handleIncomingMessage(text: String) {
         try {
-            val root = json.parseToJsonElement(text) as? JsonArray ?: return
-            if (root.size < 5) return
+            val element = json.parseToJsonElement(text)
+            val root = element as? JsonArray
+            if (root == null || root.size < 5) {
+                _events.emit(GliaStreamEvent.Error("Formato de mensaje inválido del servidor: se esperaba un array de 5 elementos"))
+                return
+            }
 
             val ref = root[1].jsonPrimitive.content.takeIf { it != "null" }
             val event = root[3].jsonPrimitive.content
-            val payload = root[4] as? JsonObject ?: return
+            val payload = root[4] as? JsonObject
+            if (payload == null) {
+                _events.emit(GliaStreamEvent.Error("Payload de mensaje inválido del servidor"))
+                return
+            }
 
             when (event) {
                 "phx_reply" -> {
@@ -311,7 +327,9 @@ open class PhoenixAgentClient(
                     _events.emit(GliaStreamEvent.Error(msg))
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            _events.emit(GliaStreamEvent.Error("Error al procesar mensaje del servidor: ${e.localizedMessage ?: e.message}"))
+        }
     }
 
     override suspend fun disconnect() {
@@ -334,47 +352,52 @@ open class PhoenixAgentClient(
 }
 
 /**
- * Cliente principal de Glia. Por compatibilidad hacia atrás, hereda directamente de PhoenixAgentClient
- * y provee una factoría estática [create] para soportar backends alternativos como SSE (Dify, LangGraph, etc).
+ * Cliente principal de Glia. Implementa composición sobre herencia delegando
+ * en la implementación adecuada según [GliaOptions.backendType].
  */
-class GliaClient(
-    options: GliaOptions,
-    connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory
-) : PhoenixAgentClient(options, connectionFactory) {
-
-    constructor(
-        gatewayUrl: String,
-        appId: String,
-        userId: String,
-        token: String? = null,
-        systemPrompt: String? = null,
-        timeoutMs: Long = 60_000L,
-        autoReconnect: Boolean = true,
-        backendType: GliaBackendType = GliaBackendType.PHOENIX,
-        connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory
-    ) : this(
-        GliaOptions(
-            gatewayUrl = gatewayUrl,
-            appId = appId,
-            userId = userId,
-            token = token,
-            systemPrompt = systemPrompt,
-            timeoutMs = timeoutMs,
-            autoReconnect = autoReconnect,
-            backendType = backendType
-        ),
-        connectionFactory
-    )
+class GliaClient private constructor(
+    private val delegate: GliaClientProtocol
+) : GliaClientProtocol by delegate {
 
     companion object {
-        fun create(
+        operator fun invoke(
             options: GliaOptions,
             connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory
-        ): GliaClientProtocol {
-            return when (options.backendType) {
+        ): GliaClient {
+            val delegate = when (options.backendType) {
                 GliaBackendType.PHOENIX -> PhoenixAgentClient(options, connectionFactory)
                 GliaBackendType.SSE -> SseAgentClient(options)
             }
+            return GliaClient(delegate)
         }
+
+        operator fun invoke(
+            gatewayUrl: String,
+            appId: String,
+            userId: String,
+            token: String? = null,
+            systemPrompt: String? = null,
+            timeoutMs: Long = 60_000L,
+            autoReconnect: Boolean = true,
+            backendType: GliaBackendType = GliaBackendType.PHOENIX,
+            connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory
+        ): GliaClient = invoke(
+            GliaOptions(
+                gatewayUrl = gatewayUrl,
+                appId = appId,
+                userId = userId,
+                token = token,
+                systemPrompt = systemPrompt,
+                timeoutMs = timeoutMs,
+                autoReconnect = autoReconnect,
+                backendType = backendType
+            ),
+            connectionFactory
+        )
+
+        fun create(
+            options: GliaOptions,
+            connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory
+        ): GliaClientProtocol = invoke(options, connectionFactory)
     }
 }
