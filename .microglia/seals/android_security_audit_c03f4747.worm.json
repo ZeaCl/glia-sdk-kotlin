@@ -1,0 +1,9 @@
+{
+  "version": "4.0",
+  "workflow_id": "android_security_audit",
+  "git_commit": "c03f4747cde0923c3c71891ec103f6e9032d4df6",
+  "timestamp": "2026-09-19T15:51:16.728821+00:00",
+  "report_sha256": "7fe5bd68b0cc00e7a3b8e676a530586d27dd5ee02b039c3b93093408b7e7fda3",
+  "public_key_hex": "9aa4e68221e3cd986af86fa58230d3125eda2a0583bcbf8c7bda13060b58516e",
+  "signature_hex": "5ee5c649494e9b90ea60857e1f20257c00aedb16b7b101e13805d2f6c45913da4fed1702e10c18b5a717387bd37438096cdfeb33983e6f92c6f781704d64880e"
+}

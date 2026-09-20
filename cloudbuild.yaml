@@ -1,0 +1,27 @@
+# ============================================================================
+# cloudbuild.yaml — Glia Kotlin Client SDK (cl.zea.glia)
+# ============================================================================
+# ZeaCl/glia-sdk-kotlin: Pipeline GCP Cloud Build para compilación Android & Microglia.
+# ============================================================================
+
+steps:
+  # 1. Compilación y ejecución de test suite unitaria
+  - name: '${_GRADLE_IMAGE}'
+    id: gradle-test
+    entrypoint: ./gradlew
+    args: ['testDebugUnitTest', '--no-daemon', '--stacktrace']
+
+  # 2. Auditoría de seguridad estática y cumplimiento con Microglia
+  - name: '${_MICROGLIA_IMAGE}'
+    id: microglia-audit
+    entrypoint: microglia
+    args: ['scan', '.', '--sarif', 'reports/microglia.sarif']
+
+substitutions:
+  _REGION: southamerica-west1
+  _GRADLE_IMAGE: 'gradle:8.9-jdk17'
+  _MICROGLIA_IMAGE: 'southamerica-west1-docker.pkg.dev/${PROJECT_ID}/zea/microglia:latest'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
