@@ -36,7 +36,15 @@ class GliaClientTest {
         assertEquals("session:nutrisnaps:user_123", options.topic)
         assertTrue(options.wsUrl.startsWith("ws://localhost:4003/socket/websocket"))
         assertTrue(options.wsUrl.contains("vsn=2.0.0"))
-        assertTrue(options.wsUrl.contains("token=jwt_token"))
+        assertFalse(options.wsUrl.contains("token="))
+        assertEquals("Bearer jwt_token", options.effectiveHeaders["Authorization"])
+
+        val secureOptions = GliaOptions(
+            gatewayUrl = "wss://glia.nutrisnaps.cl",
+            appId = "nutrisnaps",
+            userId = "user_123"
+        )
+        assertTrue(secureOptions.wsUrl.startsWith("wss://glia.nutrisnaps.cl/socket/websocket"))
     }
 
     @Test
@@ -214,5 +222,65 @@ class GliaClientTest {
         assertEquals("Hola mundo", (received[5] as GliaStreamEvent.Done).fullMessage)
 
         client.disconnect()
+    }
+
+    @Test
+    fun testMalformedJsonEmitsErrorEvent() = runBlocking {
+        val mockConn = MockWebSocketConnection()
+        val options = GliaOptions(
+            gatewayUrl = "ws://localhost:4003",
+            appId = "app1",
+            userId = "usr1",
+            timeoutMs = 2_000L
+        )
+
+        val client = GliaClient(
+            options = options,
+            connectionFactory = { _, _ -> mockConn }
+        )
+
+        launch(Dispatchers.IO) {
+            delay(30)
+            mockConn.pushIncoming("[\"1\",\"1\",\"session:app1:usr1\",\"phx_reply\",{\"status\":\"ok\",\"response\":{}}]")
+        }
+
+        client.connect()
+
+        val errors = mutableListOf<GliaStreamEvent.Error>()
+        val collectorJob = launch(Dispatchers.IO) {
+            client.events.collect { event ->
+                if (event is GliaStreamEvent.Error) {
+                    errors.add(event)
+                }
+            }
+        }
+
+        delay(30)
+        // Enviar JSON inválido / malformado
+        mockConn.pushIncoming("ESTO_NO_ES_UN_JSON_VALIDO")
+
+        delay(100)
+        collectorJob.cancel()
+
+        assertTrue(errors.isNotEmpty())
+        assertTrue(errors[0].message.contains("inválido") || errors[0].message.contains("Error"))
+
+        client.disconnect()
+    }
+
+    @Test
+    fun testDelegationToSseBackend() = runBlocking {
+        val options = GliaOptions(
+            gatewayUrl = "https://soma.zea.cl",
+            appId = "nutrisnaps",
+            userId = "usr1",
+            backendType = cl.zea.glia.core.models.GliaBackendType.SSE
+        )
+
+        val client = GliaClient(options)
+        client.connect()
+        assertTrue(client.isConnected.value)
+        client.disconnect()
+        assertFalse(client.isConnected.value)
     }
 }

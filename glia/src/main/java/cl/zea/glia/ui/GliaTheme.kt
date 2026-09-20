@@ -19,5 +19,6 @@ data class GliaTheme(
     val thinkingBg: Color = Color(0xFF3B82F6).copy(alpha = 0.12f),
     val thinkingText: Color = Color(0xFF60A5FA),
     val thinkingBorder: Color = Color(0xFF3B82F6).copy(alpha = 0.40f),
+    val toolIconTint: Color = Color(0xFFEAB308),
     val error: Color = Color(0xFFEF4444)
 )

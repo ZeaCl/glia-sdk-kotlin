@@ -28,24 +28,30 @@ data class GliaOptions(
     val topic: String
         get() = "session:$appId:$userId"
 
+    val effectiveHeaders: Map<String, String>
+        get() {
+            val map = headers.toMutableMap()
+            if (!token.isNullOrBlank() && !map.containsKey("Authorization")) {
+                map["Authorization"] = "Bearer $token"
+            }
+            return map
+        }
+
     val wsUrl: String
         get() {
             var clean = gatewayUrl.trimEnd('/')
-            val scheme = if (clean.startsWith("https://")) "wss://" else if (clean.startsWith("http://")) "ws://" else ""
+            val scheme = if (clean.startsWith("https://") || clean.startsWith("wss://")) "wss://"
+            else if (clean.startsWith("http://") || clean.startsWith("ws://")) "ws://"
+            else ""
             clean = clean.removePrefix("https://").removePrefix("http://").removePrefix("wss://").removePrefix("ws://")
 
             if (!clean.endsWith("/socket/websocket")) {
                 clean = "$clean/socket/websocket"
             }
 
-            val finalScheme = if (scheme.isNotEmpty()) scheme else "ws://"
+            val finalScheme = if (scheme.isNotEmpty()) scheme else "wss://"
             val urlWithScheme = "$finalScheme$clean"
 
-            val queryParams = mutableListOf("vsn=2.0.0")
-            if (!token.isNullOrBlank()) {
-                queryParams.add("token=$token")
-            }
-
-            return "$urlWithScheme?${queryParams.joinToString("&")}"
+            return "$urlWithScheme?vsn=2.0.0"
         }
 }

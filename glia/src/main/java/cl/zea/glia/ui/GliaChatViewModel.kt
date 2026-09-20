@@ -41,7 +41,7 @@ data class GliaUiState(
 class GliaChatViewModel(
     private val client: GliaClientProtocol,
     initialMessages: List<GliaChatMessage> = emptyList(),
-    var onMessagesUpdated: ((List<GliaChatMessage>) -> Unit)? = null
+    private val onMessagesUpdated: ((List<GliaChatMessage>) -> Unit)? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GliaUiState(messages = initialMessages))

@@ -411,7 +411,7 @@ private fun ToolChip(name: String, theme: GliaTheme) {
         Icon(
             imageVector = Icons.Default.Build,
             contentDescription = null,
-            tint = Color(0xFFEAB308),
+            tint = theme.toolIconTint,
             modifier = Modifier.size(14.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))

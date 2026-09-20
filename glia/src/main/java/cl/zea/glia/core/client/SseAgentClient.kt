@@ -62,7 +62,9 @@ class SseAgentClient(
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun connect() {
-        // En SSE sobre HTTP, la conexión se verifica marcando el cliente como listo para peticiones
+        if (!options.gatewayUrl.startsWith("http://") && !options.gatewayUrl.startsWith("https://")) {
+            throw GliaException.InvalidURL(options.gatewayUrl)
+        }
         _isConnected.value = true
         _events.emit(GliaStreamEvent.Status("ready"))
     }
@@ -139,10 +141,10 @@ class SseAgentClient(
 
                         parseSseData(rawData, currentEventType) { chunk, isThinking ->
                             if (isThinking) {
-                                scope.launch { _events.emit(GliaStreamEvent.ThinkingDelta(chunk)) }
+                                _events.emit(GliaStreamEvent.ThinkingDelta(chunk))
                             } else {
                                 fullAccumulatedMessage += chunk
-                                scope.launch { _events.emit(GliaStreamEvent.MessageDelta(chunk)) }
+                                _events.emit(GliaStreamEvent.MessageDelta(chunk))
                             }
                         }
                     }
@@ -162,7 +164,7 @@ class SseAgentClient(
     private suspend fun parseSseData(
         data: String,
         eventType: String,
-        onDelta: (chunk: String, isThinking: Boolean) -> Unit
+        onDelta: suspend (chunk: String, isThinking: Boolean) -> Unit
     ) {
         try {
             val element = json.parseToJsonElement(data) as? JsonObject ?: return
@@ -219,7 +221,9 @@ class SseAgentClient(
             if (!text.isNullOrEmpty()) {
                 onDelta(text, false)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            _events.emit(GliaStreamEvent.Error("Error al parsear evento SSE: ${e.localizedMessage ?: e.message}"))
+        }
     }
 
     override fun close() {
