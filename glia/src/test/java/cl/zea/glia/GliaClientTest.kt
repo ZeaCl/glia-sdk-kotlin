@@ -53,14 +53,14 @@ class GliaClientTest {
             put("type", "object")
         }
         val tool = GliaToolDefinition(
-            name = "calculate_macro",
-            description = "Calculate meal calories and macros",
+            name = "calculate_metric",
+            description = "Calculate statistics and data metrics",
             parameters = params,
-            webhookUrl = "https://api.example.com/macros"
+            webhookUrl = "https://api.example.com/metrics"
         )
 
-        assertEquals("calculate_macro", tool.name)
-        assertEquals("https://api.example.com/macros", tool.webhookUrl)
+        assertEquals("calculate_metric", tool.name)
+        assertEquals("https://api.example.com/metrics", tool.webhookUrl)
     }
 
     @Test
