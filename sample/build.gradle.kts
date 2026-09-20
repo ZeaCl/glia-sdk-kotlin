@@ -5,6 +5,15 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+import java.util.Properties
+
+val localProperties = Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        load(localFile.inputStream())
+    }
+}
+
 android {
     namespace = "cl.zea.glia.sample"
     compileSdk = 35
@@ -17,6 +26,21 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Secure credential injection (reads from gitignored local.properties or system env vars)
+        val zeaGateway = localProperties.getProperty("zea.gateway.url") ?: System.getenv("ZEA_GATEWAY_URL") ?: ""
+        val zeaAppId = localProperties.getProperty("zea.app.id") ?: System.getenv("ZEA_APP_ID") ?: ""
+        val zeaUserId = localProperties.getProperty("zea.user.id") ?: System.getenv("ZEA_USER_ID") ?: ""
+        val zeaToken = localProperties.getProperty("zea.token") ?: System.getenv("ZEA_TOKEN") ?: ""
+        val sseEndpoint = localProperties.getProperty("sse.endpoint.url") ?: System.getenv("SSE_ENDPOINT_URL") ?: ""
+        val sseToken = localProperties.getProperty("sse.token") ?: System.getenv("SSE_TOKEN") ?: ""
+
+        buildConfigField("String", "ZEA_GATEWAY_URL", "\"$zeaGateway\"")
+        buildConfigField("String", "ZEA_APP_ID", "\"$zeaAppId\"")
+        buildConfigField("String", "ZEA_USER_ID", "\"$zeaUserId\"")
+        buildConfigField("String", "ZEA_TOKEN", "\"$zeaToken\"")
+        buildConfigField("String", "SSE_ENDPOINT_URL", "\"$sseEndpoint\"")
+        buildConfigField("String", "SSE_TOKEN", "\"$sseToken\"")
     }
 
     buildTypes {
@@ -37,6 +61,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

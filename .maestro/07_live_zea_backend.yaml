@@ -1,0 +1,35 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+# Open Settings dialog
+- tapOn:
+    id: "settings_button"
+- assertVisible: "Select Agent Provider"
+
+# Switch to ZEA Phoenix
+- tapOn: "ZEA Cloud (Phoenix v2)"
+- assertVisible: "Gateway URL"
+
+# Apply settings (pre-populated from local.properties or inputs)
+- tapOn: "Apply"
+
+# Verify connection indicator is ready
+- assertVisible: "Provider: ZEA Cloud (Phoenix)"
+- assertVisible:
+    id: "chat_input"
+
+# Send prompt to live agent
+- tapOn:
+    id: "chat_input"
+- inputText: "Hello from Maestro live test"
+- hideKeyboard
+- tapOn:
+    id: "send_button"
+
+# Wait for live response from ZEA Cloud
+- extendedWaitUntil:
+    visible:
+      id: "assistant_message"
+    timeout: 30000

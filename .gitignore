@@ -4,6 +4,7 @@
 
 ### --- Android & Gradle Specifics ---
 .gradle/
+.kotlin/
 build/
 **/build/
 local.properties

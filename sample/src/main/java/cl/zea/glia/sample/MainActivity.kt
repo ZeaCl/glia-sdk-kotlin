@@ -179,15 +179,15 @@ fun GliaSampleScreen() {
     var selectedProviderType by remember { mutableStateOf(ProviderType.MOCK_OFFLINE) }
     var showSettingsDialog by remember { mutableStateOf(false) }
 
-    // Configuration state for ZEA Phoenix
-    var phoenixUrl by remember { mutableStateOf("wss://api.zea.cl") }
-    var phoenixAppId by remember { mutableStateOf("demo-app") }
-    var phoenixUserId by remember { mutableStateOf("user-demo") }
-    var phoenixToken by remember { mutableStateOf("") }
+    // Configuration state for ZEA Phoenix (pre-populated from gitignored local.properties or env)
+    var phoenixUrl by remember { mutableStateOf(BuildConfig.ZEA_GATEWAY_URL.ifBlank { "wss://api.zea.cl" }) }
+    var phoenixAppId by remember { mutableStateOf(BuildConfig.ZEA_APP_ID.ifBlank { "demo-app" }) }
+    var phoenixUserId by remember { mutableStateOf(BuildConfig.ZEA_USER_ID.ifBlank { "user-demo" }) }
+    var phoenixToken by remember { mutableStateOf(BuildConfig.ZEA_TOKEN) }
 
     // Configuration state for SSE
-    var sseUrl by remember { mutableStateOf("https://api.dify.ai/v1/chat-messages") }
-    var sseToken by remember { mutableStateOf("") }
+    var sseUrl by remember { mutableStateOf(BuildConfig.SSE_ENDPOINT_URL.ifBlank { "https://api.dify.ai/v1/chat-messages" }) }
+    var sseToken by remember { mutableStateOf(BuildConfig.SSE_TOKEN) }
 
     // Create current provider & client
     var currentClient by remember {
@@ -344,6 +344,22 @@ fun GliaSampleScreen() {
                             label = { Text("App ID") },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        OutlinedTextField(
+                            value = phoenixUserId,
+                            onValueChange = { phoenixUserId = it },
+                            label = { Text("User ID") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("phoenix_user_id_input")
+                        )
+                        OutlinedTextField(
+                            value = phoenixToken,
+                            onValueChange = { phoenixToken = it },
+                            label = { Text("Token / Bearer JWT") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("phoenix_token_input")
+                        )
                     }
 
                     // Option 3: SSE
@@ -367,6 +383,14 @@ fun GliaSampleScreen() {
                             onValueChange = { sseUrl = it },
                             label = { Text("Endpoint URL") },
                             modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = sseToken,
+                            onValueChange = { sseToken = it },
+                            label = { Text("Token / Secret Key") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("sse_token_input")
                         )
                     }
                 }
