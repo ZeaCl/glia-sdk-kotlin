@@ -271,7 +271,7 @@ class GliaClientTest {
     @Test
     fun testDelegationToSseBackend() = runBlocking {
         val options = GliaOptions(
-            gatewayUrl = "https://soma.zea.cl",
+            gatewayUrl = "https://api.dify.ai/v1/chat-messages",
             appId = "nutrisnaps",
             userId = "usr1",
             backendType = cl.zea.glia.core.models.GliaBackendType.SSE

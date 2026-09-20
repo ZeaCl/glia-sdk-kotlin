@@ -40,7 +40,6 @@ import kotlinx.serialization.json.put
 /**
  * Implementación de GliaClientProtocol para conectarse a plataformas agénticas externas
  * basadas en HTTP Server-Sent Events (SSE / text/event-stream), tales como:
- * - Soma (Hub de agentes tipo Pi y open-source de ZEA Platform, autenticado por Thalamus Auth Server)
  * - Dify.ai (/v1/chat-messages)
  * - LangGraph / LangChain Cloud
  * - OpenAI Assistants / Chat Completions con streaming

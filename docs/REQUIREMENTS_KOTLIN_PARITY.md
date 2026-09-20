@@ -119,14 +119,14 @@ Este documento establece los requerimientos formales necesarios para alcanzar el
 ## 6. Arquitectura Multi-Backend (Conectores Agénticos)
 
 ### REQ-BACKEND-01: Abstracción de Transporte de Agentes (`GliaBackendType`)
-- **Descripción:** El SDK debe permitir conectarse no solo a ZEA Glia (Phoenix Channels), sino también a backends de agentes externos basados en HTTP Server-Sent Events (SSE) y streaming estándar (Soma Agent Hub tipo Pi/open-source con autenticación vía Thalamus Auth Server, Dify.ai, LangGraph, OpenAI Assistants).
+- **Descripción:** El SDK debe permitir conectarse no solo a ZEA Glia (Phoenix Channels), sino también a backends de agentes externos basados en HTTP Server-Sent Events (SSE) y streaming estándar (Dify.ai, LangGraph, OpenAI Assistants).
 - **Criterio de Aceptación:**
   - `GliaClientProtocol` se mantiene como contrato universal agnóstico.
   - Soportar enum/configuración:
     ```kotlin
     enum class GliaBackendType {
         PHOENIX, // Glia Elixir runtime (por defecto)
-        SSE      // Soma Hub, Dify, LangGraph, OpenAI SSE
+        SSE      // Dify, LangGraph, OpenAI SSE
     }
     ```
   - `PhoenixAgentClient`: Implementación basada en Phoenix Channels v2.

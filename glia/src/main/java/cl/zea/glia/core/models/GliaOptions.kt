@@ -4,8 +4,8 @@ package cl.zea.glia.core.models
  * Tipo de backend para el runtime agéntico.
  */
 enum class GliaBackendType {
-    PHOENIX, // Glia Elixir runtime vía Phoenix Channels v2 (por defecto)
-    SSE      // Agentes basados en Server-Sent Events (Soma Agent Hub, Dify.ai, LangGraph, OpenAI)
+    PHOENIX, // Runtime agéntico oficial Glia vía Phoenix Channels v2 (por defecto)
+    SSE      // Agentes externos basados en Server-Sent Events (Dify.ai, LangGraph, OpenAI)
 }
 
 /**
