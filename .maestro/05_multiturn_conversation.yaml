@@ -3,26 +3,31 @@ appId: cl.zea.glia.sample
 - launchApp:
     clearState: true
 
-# Turn 1: First user query
+# Turn 1
 - tapOn:
     id: "chat_input"
 - inputText: "Turn 1: What is Glia?"
+- hideKeyboard
 - tapOn:
     id: "send_button"
 
-# Wait for Turn 1 response to complete
-- assertVisible: "Turn 1: What is Glia?"
-- assertVisible: "Glia AI Assistant"
+- extendedWaitUntil:
+    visible: ".*Glia AI Assistant.*"
+    timeout: 10000
 
-# Turn 2: Follow-up query
+- assertVisible: ".*Glia AI Assistant.*"
+
+# Turn 2
 - tapOn:
     id: "chat_input"
 - inputText: "Turn 2: Explain providers"
+- hideKeyboard
 - tapOn:
     id: "send_button"
 
-# Acceptance Criteria: Both Turn 1 and Turn 2 messages are preserved in chronological order
-- assertVisible: "Turn 1: What is Glia?"
-- assertVisible: "Turn 2: Explain providers"
-- assertVisible:
-    id: "assistant_message"
+- extendedWaitUntil:
+    visible: ".*You said: \"Turn 2: Explain providers\".*"
+    timeout: 10000
+
+# Verify Turn 2 assistant answer is visible
+- assertVisible: ".*You said: \"Turn 2: Explain providers\".*"

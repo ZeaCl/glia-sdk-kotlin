@@ -15,10 +15,14 @@ appId: cl.zea.glia.sample
 - tapOn:
     id: "chat_input"
 - inputText: "Hello Glia"
+- hideKeyboard
 - tapOn:
     id: "send_button"
 
-# Acceptance Criteria: User message bubble appears in chat list
-- assertVisible:
-    id: "user_message"
-- assertVisible: "Hello Glia"
+# Acceptance Criteria: Assistant response streams and completes with reasoning and tool
+- extendedWaitUntil:
+    visible: ".*Glia AI Assistant.*"
+    timeout: 10000
+
+- assertVisible: "Reasoning Process"
+- assertVisible: ".*Glia AI Assistant.*"

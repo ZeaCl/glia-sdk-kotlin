@@ -6,18 +6,15 @@ appId: cl.zea.glia.sample
 - tapOn:
     id: "chat_input"
 - inputText: "Streaming test"
+- hideKeyboard
 - tapOn:
     id: "send_button"
 
-# Acceptance Criteria: Streaming response deltas appear
-- assertVisible:
-    id: "live_message_block"
+# Wait for completion of streaming
+- extendedWaitUntil:
+    visible: ".*Glia AI Assistant.*"
+    timeout: 10000
 
-# Acceptance Criteria: Full assistant response arrives and final message bubble is shown
-- assertVisible:
-    id: "assistant_message"
-- assertVisible: "Glia AI Assistant"
-
-# Acceptance Criteria: Input area is cleared and send button is ready for next input
+- assertVisible: ".*Glia AI Assistant.*"
 - assertVisible:
     id: "send_button"

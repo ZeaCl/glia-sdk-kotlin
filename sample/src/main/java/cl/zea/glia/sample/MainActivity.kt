@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,9 +42,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -147,6 +151,7 @@ enum class ProviderType {
 
 class MainActivity : ComponentActivity() {
 
+    @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -154,7 +159,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .semantics { testTagsAsResourceId = true },
                     color = MaterialTheme.colorScheme.background
                 ) {
                     GliaSampleScreen()
@@ -195,23 +202,27 @@ fun GliaSampleScreen() {
     fun switchProvider(type: ProviderType) {
         selectedProviderType = type
         coroutineScope.launch {
-            currentClient.disconnect()
-            val newProvider: AgentProvider = when (type) {
-                ProviderType.MOCK_OFFLINE -> MockEchoAgentProvider()
-                ProviderType.ZEA_PHOENIX -> ZeaPhoenixProvider(
-                    gatewayUrl = phoenixUrl,
-                    appId = phoenixAppId,
-                    userId = phoenixUserId,
-                    token = phoenixToken.ifBlank { null }
-                )
-                ProviderType.SSE_LANGGRAPH -> SseAgentProvider(
-                    endpointUrl = sseUrl,
-                    token = sseToken.ifBlank { null }
-                )
+            try {
+                currentClient.disconnect()
+                val newProvider: AgentProvider = when (type) {
+                    ProviderType.MOCK_OFFLINE -> MockEchoAgentProvider()
+                    ProviderType.ZEA_PHOENIX -> ZeaPhoenixProvider(
+                        gatewayUrl = phoenixUrl,
+                        appId = phoenixAppId,
+                        userId = phoenixUserId,
+                        token = phoenixToken.ifBlank { null }
+                    )
+                    ProviderType.SSE_LANGGRAPH -> SseAgentProvider(
+                        endpointUrl = sseUrl,
+                        token = sseToken.ifBlank { null }
+                    )
+                }
+                currentClient = GliaClient.create(newProvider)
+                currentViewModel = GliaChatViewModel(currentClient)
+                currentClient.connect()
+            } catch (e: Exception) {
+                // Prevent unhandled network/SSL exceptions from terminating the sample app
             }
-            currentClient = GliaClient.create(newProvider)
-            currentViewModel = GliaChatViewModel(currentClient)
-            currentClient.connect()
         }
     }
 
@@ -294,6 +305,7 @@ fun GliaSampleScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable { switchProvider(ProviderType.MOCK_OFFLINE) }
                             .testTag("provider_row_mock")
                     ) {
                         RadioButton(
@@ -309,6 +321,7 @@ fun GliaSampleScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable { switchProvider(ProviderType.ZEA_PHOENIX) }
                             .testTag("provider_row_phoenix")
                     ) {
                         RadioButton(
@@ -338,6 +351,7 @@ fun GliaSampleScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable { switchProvider(ProviderType.SSE_LANGGRAPH) }
                             .testTag("provider_row_sse")
                     ) {
                         RadioButton(

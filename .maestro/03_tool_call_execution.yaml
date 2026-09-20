@@ -6,10 +6,13 @@ appId: cl.zea.glia.sample
 - tapOn:
     id: "chat_input"
 - inputText: "Search knowledge base"
+- hideKeyboard
 - tapOn:
     id: "send_button"
 
-# Acceptance Criteria: Tool badge appears indicating function execution
-- assertVisible:
-    id: "tool_badge"
+# Wait for tool badge to appear
+- extendedWaitUntil:
+    visible: "Tool: knowledge_lookup"
+    timeout: 10000
+
 - assertVisible: "Tool: knowledge_lookup"
