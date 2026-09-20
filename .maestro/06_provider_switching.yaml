@@ -1,0 +1,35 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+# Acceptance Criteria: Default state is Mock Offline
+- assertVisible:
+    id: "provider_label"
+- assertVisible: "Provider: Mock (Offline)"
+
+# Open Settings dialog
+- tapOn:
+    id: "settings_button"
+- assertVisible:
+    id: "settings_dialog"
+- assertVisible: "Select Agent Provider"
+
+# Switch to ZEA Phoenix
+- tapOn:
+    id: "provider_radio_phoenix"
+- assertVisible: "Gateway URL"
+- tapOn:
+    id: "settings_apply_button"
+
+# Acceptance Criteria: TopBar updates to ZEA Phoenix
+- assertVisible: "Provider: ZEA Cloud (Phoenix)"
+
+# Switch back to Mock Offline
+- tapOn:
+    id: "settings_button"
+- tapOn:
+    id: "provider_radio_mock"
+- tapOn:
+    id: "settings_apply_button"
+- assertVisible: "Provider: Mock (Offline)"

@@ -1,0 +1,28 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: "chat_input"
+- inputText: "Analyze architecture"
+- tapOn:
+    id: "send_button"
+
+# Acceptance Criteria: Live thinking indicator appears during model reasoning
+- assertVisible:
+    id: "live_thinking_block"
+
+# Acceptance Criteria: Collapsible reasoning block is preserved in final message
+- assertVisible:
+    id: "thinking_block"
+- assertVisible: "Reasoning Process"
+
+# Acceptance Criteria: User can tap to expand and view thinking deltas
+- tapOn:
+    id: "thinking_block"
+- assertVisible: "Analyzing your request"
+
+# Acceptance Criteria: User can tap again to collapse
+- tapOn:
+    id: "thinking_block"

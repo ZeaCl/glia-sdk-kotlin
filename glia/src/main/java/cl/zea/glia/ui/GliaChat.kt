@@ -50,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -193,6 +194,7 @@ private fun HeaderBar(title: String, isConnected: Boolean, theme: GliaTheme) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("header_bar")
             .background(theme.surface)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -202,6 +204,7 @@ private fun HeaderBar(title: String, isConnected: Boolean, theme: GliaTheme) {
                 .size(8.dp)
                 .clip(CircleShape)
                 .background(if (isConnected) Color(0xFF22C55E) else Color(0xFFF97316))
+                .testTag("status_indicator")
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
@@ -223,6 +226,7 @@ private fun WelcomeView(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .testTag("welcome_view")
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -266,7 +270,9 @@ private fun WelcomeView(
 private fun MessageBubble(message: GliaChatMessage, theme: GliaTheme) {
     val isUser = message.role == GliaMessageRole.USER
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(if (isUser) "user_message" else "assistant_message"),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Column(
@@ -299,6 +305,7 @@ private fun CollapsibleThinkingBlock(thinking: String, theme: GliaTheme) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("thinking_block")
             .clip(RoundedCornerShape(8.dp))
             .background(theme.thinkingBg)
             .border(1.dp, theme.thinkingBorder, RoundedCornerShape(8.dp))
@@ -354,12 +361,14 @@ private fun LiveStreamingBlock(
     theme: GliaTheme
 ) {
     Column(
+        modifier = Modifier.testTag("live_streaming_block"),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.Start
     ) {
         if (thinking.isNotBlank()) {
             Row(
                 modifier = Modifier
+                    .testTag("live_thinking_block")
                     .clip(RoundedCornerShape(8.dp))
                     .background(theme.thinkingBg)
                     .border(1.dp, theme.thinkingBorder, RoundedCornerShape(8.dp))
@@ -385,6 +394,7 @@ private fun LiveStreamingBlock(
         if (streamingText.isNotBlank()) {
             Box(
                 modifier = Modifier
+                    .testTag("live_message_block")
                     .clip(RoundedCornerShape(18.dp))
                     .background(theme.agentBubble)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -403,6 +413,7 @@ private fun LiveStreamingBlock(
 private fun ToolChip(name: String, theme: GliaTheme) {
     Row(
         modifier = Modifier
+            .testTag("tool_badge")
             .clip(RoundedCornerShape(8.dp))
             .background(theme.surfaceContainerHigh)
             .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -443,7 +454,9 @@ private fun InputArea(
             value = text,
             onValueChange = onTextChange,
             placeholder = { Text(placeholder, color = theme.textMuted) },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .testTag("chat_input"),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = theme.text,
                 unfocusedTextColor = theme.text,
@@ -456,7 +469,8 @@ private fun InputArea(
         Spacer(modifier = Modifier.width(8.dp))
         IconButton(
             onClick = onSend,
-            enabled = text.isNotBlank() && !isStreaming
+            enabled = text.isNotBlank() && !isStreaming,
+            modifier = Modifier.testTag("send_button")
         ) {
             if (isStreaming) {
                 CircularProgressIndicator(

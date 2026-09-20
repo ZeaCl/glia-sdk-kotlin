@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -241,13 +242,17 @@ fun GliaSampleScreen() {
                                     ProviderType.SSE_LANGGRAPH -> "Provider: SSE (LangGraph/Dify)"
                                 },
                                 fontSize = 11.sp,
-                                color = Color.Gray
+                                color = Color.Gray,
+                                modifier = Modifier.testTag("provider_label")
                             )
                         }
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showSettingsDialog = true }) {
+                    IconButton(
+                        onClick = { showSettingsDialog = true },
+                        modifier = Modifier.testTag("settings_button")
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Switch Provider"
@@ -280,17 +285,21 @@ fun GliaSampleScreen() {
     if (showSettingsDialog) {
         AlertDialog(
             onDismissRequest = { showSettingsDialog = false },
+            modifier = Modifier.testTag("settings_dialog"),
             title = { Text("Select Agent Provider") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // Option 1: Mock
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("provider_row_mock")
                     ) {
                         RadioButton(
                             selected = selectedProviderType == ProviderType.MOCK_OFFLINE,
-                            onClick = { switchProvider(ProviderType.MOCK_OFFLINE) }
+                            onClick = { switchProvider(ProviderType.MOCK_OFFLINE) },
+                            modifier = Modifier.testTag("provider_radio_mock")
                         )
                         Text("Mock Offline (Zero setup / Local echo)")
                     }
@@ -298,11 +307,14 @@ fun GliaSampleScreen() {
                     // Option 2: ZEA Phoenix
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("provider_row_phoenix")
                     ) {
                         RadioButton(
                             selected = selectedProviderType == ProviderType.ZEA_PHOENIX,
-                            onClick = { switchProvider(ProviderType.ZEA_PHOENIX) }
+                            onClick = { switchProvider(ProviderType.ZEA_PHOENIX) },
+                            modifier = Modifier.testTag("provider_radio_phoenix")
                         )
                         Text("ZEA Cloud (Phoenix v2)")
                     }
@@ -324,11 +336,14 @@ fun GliaSampleScreen() {
                     // Option 3: SSE
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("provider_row_sse")
                     ) {
                         RadioButton(
                             selected = selectedProviderType == ProviderType.SSE_LANGGRAPH,
-                            onClick = { switchProvider(ProviderType.SSE_LANGGRAPH) }
+                            onClick = { switchProvider(ProviderType.SSE_LANGGRAPH) },
+                            modifier = Modifier.testTag("provider_radio_sse")
                         )
                         Text("HTTP SSE (LangGraph / Dify)")
                     }
@@ -343,12 +358,18 @@ fun GliaSampleScreen() {
                 }
             },
             confirmButton = {
-                Button(onClick = { showSettingsDialog = false }) {
+                Button(
+                    onClick = { showSettingsDialog = false },
+                    modifier = Modifier.testTag("settings_apply_button")
+                ) {
                     Text("Apply")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showSettingsDialog = false }) {
+                TextButton(
+                    onClick = { showSettingsDialog = false },
+                    modifier = Modifier.testTag("settings_cancel_button")
+                ) {
                     Text("Close")
                 }
             }

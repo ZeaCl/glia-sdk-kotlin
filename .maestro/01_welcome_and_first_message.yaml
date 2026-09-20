@@ -1,0 +1,24 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+# Acceptance Criteria: Welcome view is displayed with input and send button
+- assertVisible:
+    id: "welcome_view"
+- assertVisible:
+    id: "chat_input"
+- assertVisible:
+    id: "send_button"
+
+# Type and send user message
+- tapOn:
+    id: "chat_input"
+- inputText: "Hello Glia"
+- tapOn:
+    id: "send_button"
+
+# Acceptance Criteria: User message bubble appears in chat list
+- assertVisible:
+    id: "user_message"
+- assertVisible: "Hello Glia"

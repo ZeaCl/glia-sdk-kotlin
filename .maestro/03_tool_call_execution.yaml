@@ -1,0 +1,15 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: "chat_input"
+- inputText: "Search knowledge base"
+- tapOn:
+    id: "send_button"
+
+# Acceptance Criteria: Tool badge appears indicating function execution
+- assertVisible:
+    id: "tool_badge"
+- assertVisible: "Tool: knowledge_lookup"

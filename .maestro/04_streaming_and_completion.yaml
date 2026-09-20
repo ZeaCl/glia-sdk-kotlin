@@ -1,0 +1,23 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: "chat_input"
+- inputText: "Streaming test"
+- tapOn:
+    id: "send_button"
+
+# Acceptance Criteria: Streaming response deltas appear
+- assertVisible:
+    id: "live_message_block"
+
+# Acceptance Criteria: Full assistant response arrives and final message bubble is shown
+- assertVisible:
+    id: "assistant_message"
+- assertVisible: "Glia AI Assistant"
+
+# Acceptance Criteria: Input area is cleared and send button is ready for next input
+- assertVisible:
+    id: "send_button"
