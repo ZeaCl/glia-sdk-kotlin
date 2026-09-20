@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    `maven-publish`
 }
 
 android {
@@ -33,6 +34,25 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            register<MavenPublication>("release") {
+                groupId = "cl.zea"
+                artifactId = "glia"
+                version = "0.1.0"
+
+                from(components["release"])
+            }
+        }
     }
 }
 
