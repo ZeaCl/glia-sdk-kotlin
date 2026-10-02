@@ -241,6 +241,11 @@ open class ZeaPhoenixProvider(
     }
 
     override suspend fun send(prompt: String, systemPrompt: String?, tools: List<GliaToolDefinition>) {
+        // Auto-reconnect if connection was dropped or not yet established
+        if (connection == null || !_isConnected.value) {
+            connect()
+        }
+
         val conn = connection
         if (conn == null || !_isConnected.value) {
             throw GliaException.NotConnected()

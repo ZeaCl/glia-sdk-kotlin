@@ -170,12 +170,30 @@ fun GliaChat(
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text(
-                    text = err,
-                    color = theme.error,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(10.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = err,
+                        color = theme.error,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Reintentar",
+                        color = theme.primary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clickable { viewModel.retryLastSend() }
+                            .testTag("retry_send_button")
+                            .padding(4.dp)
+                    )
+                }
             }
         }
 

@@ -118,6 +118,10 @@ open class SseAgentProvider(
 
     override suspend fun send(prompt: String, systemPrompt: String?, tools: List<GliaToolDefinition>) {
         if (!_isConnected.value) {
+            connect()
+        }
+
+        if (!_isConnected.value) {
             throw GliaException.NotConnected("SSE client is not connected")
         }
 
