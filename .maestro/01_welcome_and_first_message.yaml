@@ -1,0 +1,28 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+# Acceptance Criteria: Welcome view is displayed with input and send button
+- assertVisible:
+    id: "welcome_view"
+- assertVisible:
+    id: "chat_input"
+- assertVisible:
+    id: "send_button"
+
+# Type and send user message
+- tapOn:
+    id: "chat_input"
+- inputText: "Hello Glia"
+- hideKeyboard
+- tapOn:
+    id: "send_button"
+
+# Acceptance Criteria: Assistant response streams and completes with reasoning and tool
+- extendedWaitUntil:
+    visible: ".*Glia AI Assistant.*"
+    timeout: 10000
+
+- assertVisible: "Reasoning Process"
+- assertVisible: ".*Glia AI Assistant.*"

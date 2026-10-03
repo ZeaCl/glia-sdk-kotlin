@@ -41,12 +41,22 @@ data class GliaUiState(
 class GliaChatViewModel(
     private val client: GliaClientProtocol,
     initialMessages: List<GliaChatMessage> = emptyList(),
-    private val onMessagesUpdated: ((List<GliaChatMessage>) -> Unit)? = null
+    var onMessagesUpdated: ((List<GliaChatMessage>) -> Unit)? = null,
+    var errorSanitizer: ((Throwable) -> String)? = null,
+    var onError: ((Throwable) -> Unit)? = null
 ) : ViewModel() {
+
+    companion object {
+        const val DEFAULT_ERROR_MESSAGE: String =
+            "Estamos con problemas y en estos momentos no podemos atender su solicitud. Por favor, intenta nuevamente en unos instantes."
+    }
 
     private val _uiState = MutableStateFlow(GliaUiState(messages = initialMessages))
     val uiState: StateFlow<GliaUiState> = _uiState.asStateFlow()
 
+    private var lastSentPrompt: String? = null
+    private var lastSentSystemPrompt: String? = null
+    private var lastSentTools: List<GliaToolDefinition> = emptyList()
     private var lastExecutedTool: String? = null
 
     init {
@@ -78,7 +88,7 @@ class GliaChatViewModel(
             try {
                 client.connect()
             } catch (e: Exception) {
-                _uiState.update { it.copy(errorMessage = "Error connecting to Glia: ${e.localizedMessage}") }
+                _uiState.update { it.copy(errorMessage = formatError(e)) }
             }
         }
     }
@@ -89,13 +99,39 @@ class GliaChatViewModel(
         }
     }
 
+    fun retryLastSend() {
+        val prompt = lastSentPrompt
+        if (prompt != null) {
+            sendInternal(prompt = prompt, systemPrompt = lastSentSystemPrompt, tools = lastSentTools, isRetry = true)
+        } else {
+            connect()
+        }
+    }
+
     fun send(prompt: String, systemPrompt: String? = null, tools: List<GliaToolDefinition> = emptyList()) {
+        sendInternal(prompt = prompt, systemPrompt = systemPrompt, tools = tools, isRetry = false)
+    }
+
+    private fun sendInternal(
+        prompt: String,
+        systemPrompt: String?,
+        tools: List<GliaToolDefinition>,
+        isRetry: Boolean = false
+    ) {
         val trimmed = prompt.trim()
         // Guard against concurrent sends while streaming is active
         if (trimmed.isEmpty() || _uiState.value.isStreaming) return
 
-        val userMsg = GliaChatMessage(role = GliaMessageRole.USER, content = trimmed)
-        val updatedMessages = _uiState.value.messages + userMsg
+        this.lastSentPrompt = trimmed
+        this.lastSentSystemPrompt = systemPrompt
+        this.lastSentTools = tools
+
+        val updatedMessages = if (!isRetry) {
+            val userMsg = GliaChatMessage(role = GliaMessageRole.USER, content = trimmed)
+            _uiState.value.messages + userMsg
+        } else {
+            _uiState.value.messages
+        }
 
         lastExecutedTool = null
         _uiState.update { state ->
@@ -108,15 +144,32 @@ class GliaChatViewModel(
                 errorMessage = null
             )
         }
-        onMessagesUpdated?.invoke(updatedMessages)
+        if (!isRetry) {
+            onMessagesUpdated?.invoke(updatedMessages)
+        }
 
         viewModelScope.launch {
             try {
+                if (!client.isConnected.value) {
+                    client.connect()
+                }
                 client.send(prompt = trimmed, systemPrompt = systemPrompt, tools = tools)
             } catch (e: Exception) {
-                _uiState.update { it.copy(isStreaming = false, errorMessage = "Error sending message: ${e.localizedMessage}") }
+                _uiState.update { it.copy(isStreaming = false, errorMessage = formatError(e)) }
             }
         }
+    }
+
+    private fun formatError(throwable: Throwable): String {
+        onError?.invoke(throwable)
+        errorSanitizer?.invoke(throwable)?.let { return it }
+
+        val desc = throwable.localizedMessage ?: throwable.message ?: ""
+        val lower = desc.lowercase()
+        if (lower.contains("glia") || lower.contains("gateway") || lower.contains("phoenix") || lower.contains("websocket")) {
+            return DEFAULT_ERROR_MESSAGE
+        }
+        return if (desc.isNotBlank()) desc else DEFAULT_ERROR_MESSAGE
     }
 
     private fun handleEvent(event: GliaStreamEvent) {
@@ -168,7 +221,8 @@ class GliaChatViewModel(
                 onMessagesUpdated?.invoke(newMessages)
             }
             is GliaStreamEvent.Error -> {
-                _uiState.update { it.copy(isStreaming = false, errorMessage = event.message) }
+                val serverErr = cl.zea.glia.core.models.GliaException.ServerError(event.message)
+                _uiState.update { it.copy(isStreaming = false, errorMessage = formatError(serverErr)) }
             }
             is GliaStreamEvent.Reconnecting -> {
                 // Optional reconnection notification
@@ -176,3 +230,4 @@ class GliaChatViewModel(
         }
     }
 }
+

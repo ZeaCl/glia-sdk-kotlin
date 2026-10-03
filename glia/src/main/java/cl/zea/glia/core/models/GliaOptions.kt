@@ -23,7 +23,8 @@ data class GliaOptions(
     val reconnectBaseDelayMs: Long = 1_000L,
     val reconnectMaxDelayMs: Long = 30_000L,
     val headers: Map<String, String> = emptyMap(),
-    val backendType: GliaBackendType = GliaBackendType.PHOENIX
+    val backendType: GliaBackendType = GliaBackendType.PHOENIX,
+    val sendTokenInQuery: Boolean = false
 ) {
     val topic: String
         get() = "session:$appId:$userId"
@@ -45,13 +46,21 @@ data class GliaOptions(
             else ""
             clean = clean.removePrefix("https://").removePrefix("http://").removePrefix("wss://").removePrefix("ws://")
 
-            if (!clean.endsWith("/socket/websocket")) {
-                clean = "$clean/socket/websocket"
+            val baseAndQuery = clean.split("?", limit = 2)
+            var path = baseAndQuery[0].trimEnd('/')
+            val existingQuery = if (baseAndQuery.size > 1) baseAndQuery[1] else ""
+
+            if (!path.endsWith("/socket/websocket")) {
+                path = "$path/socket/websocket"
             }
 
             val finalScheme = if (scheme.isNotEmpty()) scheme else "wss://"
-            val urlWithScheme = "$finalScheme$clean"
+            val vsnParam = if (existingQuery.contains("vsn=")) "" else "vsn=2.0.0"
+            val tokenParam = if (sendTokenInQuery && !token.isNullOrBlank() && !existingQuery.contains("token=")) "token=$token" else ""
 
-            return "$urlWithScheme?vsn=2.0.0"
+            val queryParts = listOf(vsnParam, tokenParam, existingQuery).filter { it.isNotBlank() }
+            val queryString = if (queryParts.isNotEmpty()) "?" + queryParts.joinToString("&") else ""
+
+            return "$finalScheme$path$queryString"
         }
 }

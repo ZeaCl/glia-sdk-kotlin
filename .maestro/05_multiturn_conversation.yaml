@@ -1,0 +1,33 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+# Turn 1
+- tapOn:
+    id: "chat_input"
+- inputText: "Turn 1: What is Glia?"
+- hideKeyboard
+- tapOn:
+    id: "send_button"
+
+- extendedWaitUntil:
+    visible: ".*Glia AI Assistant.*"
+    timeout: 10000
+
+- assertVisible: ".*Glia AI Assistant.*"
+
+# Turn 2
+- tapOn:
+    id: "chat_input"
+- inputText: "Turn 2: Explain providers"
+- hideKeyboard
+- tapOn:
+    id: "send_button"
+
+- extendedWaitUntil:
+    visible: ".*You said: \"Turn 2: Explain providers\".*"
+    timeout: 10000
+
+# Verify Turn 2 assistant answer is visible
+- assertVisible: ".*You said: \"Turn 2: Explain providers\".*"
