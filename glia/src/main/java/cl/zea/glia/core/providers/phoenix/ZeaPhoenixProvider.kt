@@ -90,28 +90,32 @@ open class ZeaPhoenixProvider(
 
     override suspend fun connect() {
         connectMutex.withLock {
-            reconnectJob?.cancel()
-            reconnectJob = null
-            isVoluntaryDisconnect = false
+            connectInternal()
+        }
+    }
 
-            if (_isConnected.value && connection != null) return
+    private suspend fun connectInternal() {
+        reconnectJob?.cancel()
+        reconnectJob = null
+        isVoluntaryDisconnect = false
 
-            // Clean up previous connection if it existed
+        if (_isConnected.value && connection != null) return
+
+        // Clean up previous connection if it existed
+        cancelInternalConnection()
+
+        try {
+            val conn = connectionFactory(options.wsUrl, options.effectiveHeaders)
+            this.connection = conn
+
+            startReceiveLoop(conn)
+            joinChannel(conn)
+
+            reconnectAttempts = 0
+            startHeartbeat(conn)
+        } catch (e: Exception) {
             cancelInternalConnection()
-
-            try {
-                val conn = connectionFactory(options.wsUrl, options.effectiveHeaders)
-                this.connection = conn
-
-                startReceiveLoop(conn)
-                joinChannel(conn)
-
-                reconnectAttempts = 0
-                startHeartbeat(conn)
-            } catch (e: Exception) {
-                cancelInternalConnection()
-                throw e
-            }
+            throw e
         }
     }
 
@@ -241,18 +245,20 @@ open class ZeaPhoenixProvider(
     }
 
     override suspend fun send(prompt: String, systemPrompt: String?, tools: List<GliaToolDefinition>) {
-        // Auto-reconnect if connection was dropped or not yet established
-        if (connection == null || !_isConnected.value) {
-            connect()
+        val trimmed = prompt.trim()
+        if (trimmed.isEmpty()) return
+
+        // Auto-reconnect and resolve connection safely under connectMutex to prevent race with disconnect()
+        val conn = connectMutex.withLock {
+            if (connection == null || !_isConnected.value) {
+                connectInternal()
+            }
+            connection
         }
 
-        val conn = connection
         if (conn == null || !_isConnected.value) {
             throw GliaException.NotConnected()
         }
-
-        val trimmed = prompt.trim()
-        if (trimmed.isEmpty()) return
 
         val ref = messageRef.getAndIncrement().toString()
         val payload = buildJsonObject {

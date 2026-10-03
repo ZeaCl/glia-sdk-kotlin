@@ -165,6 +165,7 @@ open class SseAgentProvider(
                 val channel = response.bodyAsChannel()
                 var currentEventType = "message"
                 var fullAccumulatedMessage = ""
+                var sentDone = false
 
                 while (isActive && !channel.isClosedForRead) {
                     val line = channel.readUTF8Line() ?: break
@@ -181,6 +182,7 @@ open class SseAgentProvider(
                         val rawData = trimmedLine.removePrefix("data:").trim()
                         if (rawData == "[DONE]") {
                             _events.emit(GliaStreamEvent.Done(fullAccumulatedMessage))
+                            sentDone = true
                             break
                         }
 
@@ -195,7 +197,7 @@ open class SseAgentProvider(
                     }
                 }
 
-                if (isActive) {
+                if (isActive && !sentDone) {
                     _events.emit(GliaStreamEvent.Done(fullAccumulatedMessage))
                 }
             } catch (e: Exception) {
