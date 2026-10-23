@@ -115,16 +115,19 @@ class MockEchoAgentProvider(
             _events.emit(GliaStreamEvent.ToolResult("knowledge_lookup", toolRes))
             delay(300)
 
-            // Stream response chunks
+            // Stream response chunks with rich Markdown
             val chunks = listOf(
                 "Hello! ",
-                "I am your ",
-                "Glia AI Assistant. ",
+                "I am your **Glia AI Assistant**.\n\n",
                 "You said: \"$prompt\".\n\n",
-                "This response is being streamed live ",
-                "via the pluggable AgentProvider architecture.\n",
-                "• Compose UI: GliaChat\n",
-                "• Provider: Offline Mock Simulator"
+                "### Features & Highlights:\n",
+                "- **Fast**: Sub-millisecond token streaming\n",
+                "- **Rich Markdown**: Code blocks, *italics*, and [Zea Platform](https://zea.cl)\n\n",
+                "```kotlin\n",
+                "// Easy integration\n",
+                "val client = GliaClient.create(provider)\n",
+                "GliaChat(viewModel = GliaChatViewModel(client))\n",
+                "```"
             )
 
             var accumulated = ""
@@ -288,7 +291,8 @@ fun GliaSampleScreen() {
                 theme = GliaTheme(),
                 title = "Glia Assistant",
                 welcomeMessage = "Welcome to the Glia SDK Demo!\n\nYou are currently running with the pluggable ${selectedProviderType.name} provider. Type a message below to test real-time reasoning and streaming deltas.",
-                placeholder = "Ask anything..."
+                placeholder = "Ask anything...",
+                suggestedPrompts = listOf("Show Markdown features", "How does Glia streaming work?")
             )
         }
     }

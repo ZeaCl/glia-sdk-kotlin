@@ -48,7 +48,7 @@ afterEvaluate {
             register<MavenPublication>("release") {
                 groupId = "cl.zea"
                 artifactId = "glia"
-                version = "0.2.0"
+                version = "0.3.0"
 
                 from(components["release"])
             }
@@ -77,6 +77,13 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.compose.material:material-icons-extended:1.6.8")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
+
+    // Markdown Parsing (CommonMark)
+    val commonmarkVersion = "0.22.0"
+    implementation("org.commonmark:commonmark:$commonmarkVersion")
+    implementation("org.commonmark:commonmark-ext-gfm-tables:$commonmarkVersion")
+    implementation("org.commonmark:commonmark-ext-gfm-strikethrough:$commonmarkVersion")
+    implementation("org.commonmark:commonmark-ext-autolink:$commonmarkVersion")
 
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
