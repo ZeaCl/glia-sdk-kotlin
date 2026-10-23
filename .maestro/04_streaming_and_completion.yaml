@@ -1,0 +1,20 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: "chat_input"
+- inputText: "Streaming test"
+- hideKeyboard
+- tapOn:
+    id: "send_button"
+
+# Wait for completion of streaming
+- extendedWaitUntil:
+    visible: ".*Glia AI Assistant.*"
+    timeout: 10000
+
+- assertVisible: ".*Glia AI Assistant.*"
+- assertVisible:
+    id: "send_button"

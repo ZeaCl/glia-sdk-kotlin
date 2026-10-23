@@ -1,0 +1,18 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: "chat_input"
+- inputText: "Search knowledge base"
+- hideKeyboard
+- tapOn:
+    id: "send_button"
+
+# Wait for tool badge to appear
+- extendedWaitUntil:
+    visible: "Tool: knowledge_lookup"
+    timeout: 10000
+
+- assertVisible: "Tool: knowledge_lookup"

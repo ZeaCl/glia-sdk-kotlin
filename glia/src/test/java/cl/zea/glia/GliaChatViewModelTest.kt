@@ -38,8 +38,12 @@ class MockGliaClient : GliaClientProtocol {
     override val events: SharedFlow<GliaStreamEvent> = _events.asSharedFlow()
 
     val sentPrompts = mutableListOf<String>()
+    var shouldFailConnect: Boolean = false
 
     override suspend fun connect() {
+        if (shouldFailConnect) {
+            throw cl.zea.glia.core.models.GliaException.NotConnected("Simulated connection failure to Phoenix gateway")
+        }
         _isConnected.value = true
     }
 
@@ -216,5 +220,96 @@ class GliaChatViewModelTest {
         assertEquals(message.content, decoded.content)
         assertEquals(message.thinking, decoded.thinking)
         assertEquals(message.toolName, decoded.toolName)
+    }
+
+    @Test
+    fun testErrorSanitizationAndCallbacks() = runBlocking {
+        val mockClient = MockGliaClient()
+        mockClient.shouldFailConnect = true
+        val viewModel = GliaChatViewModel(mockClient)
+
+        var errorCallbackReceived = false
+        viewModel.onError = {
+            errorCallbackReceived = true
+        }
+
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(errorCallbackReceived)
+        assertEquals(GliaChatViewModel.DEFAULT_ERROR_MESSAGE, viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.errorMessage?.contains("Glia", ignoreCase = true) == true)
+        assertFalse(viewModel.uiState.value.errorMessage?.contains("Phoenix", ignoreCase = true) == true)
+    }
+
+    @Test
+    fun testCustomErrorSanitizer() = runBlocking {
+        val mockClient = MockGliaClient()
+        mockClient.shouldFailConnect = true
+        val viewModel = GliaChatViewModel(mockClient)
+
+        viewModel.errorSanitizer = { "Mensaje de error personalizado" }
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Mensaje de error personalizado", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun testStreamErrorInvokesOnErrorAndSanitizer() = runBlocking {
+        val mockClient = MockGliaClient()
+        val viewModel = GliaChatViewModel(mockClient)
+
+        var capturedError: Throwable? = null
+        viewModel.onError = { err -> capturedError = err }
+        viewModel.errorSanitizer = { err -> "Sanitized: ${err.message}" }
+
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        mockClient.emit(GliaStreamEvent.Error("bad_gateway"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertNotNull(capturedError)
+        assertEquals("Sanitized: Server error: bad_gateway", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun testAutoReconnectOnSend() = runBlocking {
+        val mockClient = MockGliaClient()
+        val viewModel = GliaChatViewModel(mockClient)
+
+        assertFalse(viewModel.uiState.value.isConnected)
+
+        viewModel.send("Auto-reconnect prompt")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.isConnected)
+        assertEquals(listOf("Auto-reconnect prompt"), mockClient.sentPrompts)
+    }
+
+    @Test
+    fun testRetryLastSendDoesNotDuplicateUserMessage() = runBlocking {
+        val mockClient = MockGliaClient()
+        val viewModel = GliaChatViewModel(mockClient)
+
+        viewModel.send("Initial prompt")
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, mockClient.sentPrompts.size)
+        assertEquals(1, viewModel.uiState.value.messages.size)
+
+        mockClient.emit(GliaStreamEvent.Done("First answer"))
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isStreaming)
+        assertEquals(2, viewModel.uiState.value.messages.size)
+
+        // Retry should re-send the prompt without duplicating the user message in `messages`
+        viewModel.retryLastSend()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, mockClient.sentPrompts.size)
+        // `messages` should STILL only have 2 messages (1 user, 1 assistant), NOT 3!
+        assertEquals(2, viewModel.uiState.value.messages.size)
+        assertEquals(listOf("Initial prompt", "Initial prompt"), mockClient.sentPrompts)
     }
 }
