@@ -1,0 +1,25 @@
+appId: cl.zea.glia.sample
+---
+- launchApp:
+    clearState: true
+
+# Send prompt to trigger Markdown rendering in Mock provider
+- tapOn:
+    id: "chat_input"
+- inputText: "Show Markdown features"
+- hideKeyboard
+- tapOn:
+    id: "send_button"
+
+# Wait for assistant response with markdown code block and features
+- extendedWaitUntil:
+    visible:
+      id: "code_block"
+    timeout: 10000
+
+- assertVisible:
+    id: "code_block"
+- assertVisible:
+    id: "copy_code_button"
+- assertVisible: "Features & Highlights:"
+- assertVisible: "val client = GliaClient.create(provider)"

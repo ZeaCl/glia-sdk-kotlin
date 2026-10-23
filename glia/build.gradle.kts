@@ -78,6 +78,13 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.8")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
 
+    // Markdown Parsing (CommonMark)
+    val commonmarkVersion = "0.22.0"
+    implementation("org.commonmark:commonmark:$commonmarkVersion")
+    implementation("org.commonmark:commonmark-ext-gfm-tables:$commonmarkVersion")
+    implementation("org.commonmark:commonmark-ext-gfm-strikethrough:$commonmarkVersion")
+    implementation("org.commonmark:commonmark-ext-autolink:$commonmarkVersion")
+
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")

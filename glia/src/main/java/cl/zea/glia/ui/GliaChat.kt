@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cl.zea.glia.core.models.GliaToolDefinition
+import cl.zea.glia.ui.markdown.GliaMarkdown
 
 @Composable
 fun GliaChat(
@@ -312,10 +313,10 @@ private fun MessageBubble(message: GliaChatMessage, theme: GliaTheme) {
                 ToolChip(name = message.toolName, theme = theme)
                 Spacer(modifier = Modifier.height(6.dp))
             }
-            Text(
-                text = message.content,
-                color = if (isUser) theme.userBubbleText else theme.agentBubbleText,
-                fontSize = 15.sp,
+            GliaMarkdown(
+                content = message.content,
+                theme = theme,
+                isUser = isUser,
                 modifier = Modifier.testTag(if (isUser) "user_message" else "assistant_message")
             )
         }
@@ -423,10 +424,10 @@ private fun LiveStreamingBlock(
                     .background(theme.agentBubble)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                Text(
-                    text = streamingText,
-                    color = theme.agentBubbleText,
-                    fontSize = 15.sp
+                GliaMarkdown(
+                    content = streamingText,
+                    theme = theme,
+                    isUser = false
                 )
             }
         }
