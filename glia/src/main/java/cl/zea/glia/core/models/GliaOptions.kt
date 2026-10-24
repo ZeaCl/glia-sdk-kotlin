@@ -61,7 +61,10 @@ data class GliaOptions(
 
             val finalScheme = if (scheme.isNotEmpty()) scheme else "wss://"
             val vsnParam = if (existingQuery.contains("vsn=")) "" else "vsn=2.0.0"
-            val tokenParam = if (sendTokenInQuery && !token.isNullOrBlank() && !existingQuery.contains("token=")) "token=$token" else ""
+            val tokenParam = if (sendTokenInQuery && !token.isNullOrBlank() && !existingQuery.contains("token=")) {
+                val encodedToken = java.net.URLEncoder.encode(token, "UTF-8")
+                "token=$encodedToken"
+            } else ""
 
             val queryParts = listOf(vsnParam, tokenParam, existingQuery).filter { it.isNotBlank() }
             val queryString = if (queryParts.isNotEmpty()) "?" + queryParts.joinToString("&") else ""

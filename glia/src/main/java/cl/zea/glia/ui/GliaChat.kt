@@ -96,8 +96,9 @@ fun GliaChat(
         }
     }
 
-    // Optimized auto-scroll: Animated on new message addition
-    LaunchedEffect(uiState.messages.size) {
+    // Optimized auto-scroll: Animated on new bottom message addition
+    val lastMessageId = uiState.messages.lastOrNull()?.id
+    LaunchedEffect(lastMessageId) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
         }

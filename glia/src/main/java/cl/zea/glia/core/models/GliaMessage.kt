@@ -48,7 +48,7 @@ enum class GliaMessageRole {
 data class GliaChatMessage(
     val id: String = UUID.randomUUID().toString(),
     val role: GliaMessageRole,
-    val content: String,
+    val content: String = "",
     val thinking: String? = null,
     val toolName: String? = null,
     val timestamp: Long = System.currentTimeMillis(),

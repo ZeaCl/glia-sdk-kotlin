@@ -440,4 +440,61 @@ class GliaChatViewModelTest {
         assertEquals(0, viewModel.uiState.value.messages.size)
         assertFalse(viewModel.uiState.value.hasMoreHistory)
     }
+
+    @Test
+    fun testNoDuplicateInitialHistoryLoadOnReconnection() = runBlocking {
+        val mockClient = MockGliaClient()
+        var fetchCallCount = 0
+        mockClient.historyResultProvider = { _, _ ->
+            fetchCallCount++
+            Result.success(
+                GliaHistoryResponse(
+                    messages = listOf(GliaChatMessage(id = "msg1", role = GliaMessageRole.USER, content = "Hola")),
+                    hasMore = false
+                )
+            )
+        }
+
+        val viewModel = GliaChatViewModel(mockClient)
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, fetchCallCount)
+        assertEquals(1, viewModel.uiState.value.messages.size)
+
+        // Simulate disconnect and reconnect cycle
+        viewModel.disconnect()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isConnected)
+
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isConnected)
+
+        // Must still be 1 (NOT re-fetched on reconnect)
+        assertEquals(1, fetchCallCount)
+        assertEquals(1, viewModel.uiState.value.messages.size)
+    }
+
+    @Test
+    fun testFormatErrorSanitizesRestAndServerError() = runBlocking {
+        val mockClient = MockGliaClient()
+        val viewModel = GliaChatViewModel(mockClient)
+
+        // Trigger error handling with REST error
+        mockClient.shouldFailConnect = true
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Test with custom exception mentioning REST
+        val restException = RuntimeException("REST error 502: Bad Gateway details with SQL trace")
+        val errorMethod = viewModel.javaClass.getDeclaredMethod("formatError", Throwable::class.java)
+        errorMethod.isAccessible = true
+        val sanitizedRest = errorMethod.invoke(viewModel, restException) as String
+        assertEquals(GliaChatViewModel.DEFAULT_ERROR_MESSAGE, sanitizedRest)
+
+        val serverErrorException = RuntimeException("server error: postgres connection pool exhausted")
+        val sanitizedServerErr = errorMethod.invoke(viewModel, serverErrorException) as String
+        assertEquals(GliaChatViewModel.DEFAULT_ERROR_MESSAGE, sanitizedServerErr)
+    }
 }

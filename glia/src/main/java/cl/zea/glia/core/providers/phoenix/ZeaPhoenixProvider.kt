@@ -327,7 +327,8 @@ open class ZeaPhoenixProvider(
 
         return try {
             conn.send(frame)
-            val responseObj = withTimeout(options.timeoutMs) {
+            val historyTimeout = minOf(options.timeoutMs, 10_000L)
+            val responseObj = withTimeout(historyTimeout) {
                 deferred.await()
             }
             val history = json.decodeFromJsonElement(GliaHistoryResponse.serializer(), responseObj)
@@ -352,7 +353,8 @@ open class ZeaPhoenixProvider(
                 queryParams.add("before_sequence=$beforeSequence")
             }
             val queryString = queryParams.joinToString("&")
-            val url = "${options.httpUrl}/api/conversations/${options.sessionId}/messages?$queryString"
+            val encodedSessionId = java.net.URLEncoder.encode(options.sessionId, "UTF-8")
+            val url = "${options.httpUrl}/api/conversations/$encodedSessionId/messages?$queryString"
 
             val httpResponse = httpClient.get(url) {
                 headers {

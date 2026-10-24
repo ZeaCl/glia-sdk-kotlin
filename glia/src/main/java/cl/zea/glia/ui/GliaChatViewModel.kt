@@ -53,12 +53,14 @@ class GliaChatViewModel(
     private var lastSentSystemPrompt: String? = null
     private var lastSentTools: List<GliaToolDefinition> = emptyList()
     private var lastExecutedTool: String? = null
+    private var initialHistoryLoaded: Boolean = false
 
     init {
         viewModelScope.launch {
             client.isConnected.collect { connected ->
                 _uiState.update { it.copy(isConnected = connected) }
-                if (connected && autoLoadHistory) {
+                if (connected && autoLoadHistory && !initialHistoryLoaded) {
+                    initialHistoryLoaded = true
                     loadInitialHistory()
                 }
             }
@@ -137,6 +139,7 @@ class GliaChatViewModel(
     }
 
     fun clearMessages() {
+        initialHistoryLoaded = false
         _uiState.update { it.copy(messages = emptyList(), hasMoreHistory = false) }
         onMessagesUpdated?.invoke(emptyList())
     }
@@ -224,7 +227,9 @@ class GliaChatViewModel(
 
         val desc = throwable.localizedMessage ?: throwable.message ?: ""
         val lower = desc.lowercase()
-        if (lower.contains("glia") || lower.contains("gateway") || lower.contains("phoenix") || lower.contains("websocket")) {
+        if (lower.contains("glia") || lower.contains("gateway") || lower.contains("phoenix") ||
+            lower.contains("websocket") || lower.contains("rest") || lower.contains("server error")
+        ) {
             return DEFAULT_ERROR_MESSAGE
         }
         return if (desc.isNotBlank()) desc else DEFAULT_ERROR_MESSAGE

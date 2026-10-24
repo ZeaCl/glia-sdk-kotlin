@@ -195,7 +195,7 @@ class GliaHistoryTest {
     @Test
     fun testFetchHistoryViaRest() = runBlocking {
         val mockEngine = MockEngine { request ->
-            assertEquals("/api/conversations/app1:usr1/messages", request.url.encodedPath)
+            assertEquals("/api/conversations/app1%3Ausr1/messages", request.url.encodedPath)
             assertEquals("20", request.url.parameters["limit"])
             assertEquals("Bearer rest_token", request.headers["Authorization"])
 
@@ -297,5 +297,55 @@ class GliaHistoryTest {
         assertEquals("fallback-1", history.messages[0].id)
 
         provider.disconnect()
+    }
+
+    @Test
+    fun testGliaChatMessageWithMissingContentDefaultsToEmpty() {
+        val jsonStr = """
+            {
+                "id": "tool-1",
+                "role": "assistant",
+                "thinking": "Thinking step...",
+                "toolName": "calculate"
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString<GliaChatMessage>(jsonStr)
+        assertEquals("tool-1", decoded.id)
+        assertEquals(GliaMessageRole.ASSISTANT, decoded.role)
+        assertEquals("", decoded.content)
+        assertEquals("Thinking step...", decoded.thinking)
+        assertEquals("calculate", decoded.toolName)
+    }
+
+    @Test
+    fun testTokenUrlEncodedInQuery() {
+        val options = GliaOptions(
+            gatewayUrl = "wss://glia.zea.cl/socket",
+            appId = "app1",
+            userId = "usr1",
+            token = "jwt+token/with=special#chars",
+            sendTokenInQuery = true
+        )
+        assertTrue(options.wsUrl.contains("token=jwt%2Btoken%2Fwith%3Dspecial%23chars"))
+    }
+
+    @Test
+    fun testFetchHistoryViaRestWithSpecialCharactersInSessionId() = runBlocking {
+        val mockEngine = MockEngine { request ->
+            assertEquals("/api/conversations/app%2F1%3Auser%2Btag%40domain.com/messages", request.url.encodedPath)
+            respond(
+                content = """{"messages":[],"has_more":false}""",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        val options = GliaOptions(
+            gatewayUrl = "https://glia.zea.cl",
+            appId = "app/1",
+            userId = "user+tag@domain.com"
+        )
+        val provider = ZeaPhoenixProvider(options = options, httpClient = HttpClient(mockEngine))
+        val result = provider.fetchHistory(limit = 20)
+        assertTrue(result.isSuccess)
     }
 }
