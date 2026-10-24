@@ -1,6 +1,7 @@
 package cl.zea.glia
 
 import cl.zea.glia.core.client.GliaClientProtocol
+import cl.zea.glia.core.models.GliaHistoryResponse
 import cl.zea.glia.core.models.GliaStreamEvent
 import cl.zea.glia.core.models.GliaToolDefinition
 import cl.zea.glia.ui.GliaChatMessage
@@ -39,6 +40,16 @@ class MockGliaClient : GliaClientProtocol {
 
     val sentPrompts = mutableListOf<String>()
     var shouldFailConnect: Boolean = false
+    var historyResultProvider: ((limit: Int, beforeSequence: Int?) -> Result<GliaHistoryResponse>)? = null
+
+    override suspend fun fetchHistory(limit: Int, beforeSequence: Int?): Result<GliaHistoryResponse> {
+        val provider = historyResultProvider
+        return if (provider != null) {
+            provider(limit, beforeSequence)
+        } else {
+            super.fetchHistory(limit, beforeSequence)
+        }
+    }
 
     override suspend fun connect() {
         if (shouldFailConnect) {
@@ -311,5 +322,122 @@ class GliaChatViewModelTest {
         // `messages` should STILL only have 2 messages (1 user, 1 assistant), NOT 3!
         assertEquals(2, viewModel.uiState.value.messages.size)
         assertEquals(listOf("Initial prompt", "Initial prompt"), mockClient.sentPrompts)
+    }
+
+    @Test
+    fun testAutoLoadHistoryOnConnect() = runBlocking {
+        val mockClient = MockGliaClient()
+        mockClient.historyResultProvider = { limit, beforeSequence ->
+            assertEquals(20, limit)
+            assertNull(beforeSequence)
+            Result.success(
+                GliaHistoryResponse(
+                    messages = listOf(
+                        GliaChatMessage(id = "h1", role = GliaMessageRole.USER, content = "Msg 1", sequence = 1),
+                        GliaChatMessage(id = "h2", role = GliaMessageRole.ASSISTANT, content = "Msg 2", sequence = 2)
+                    ),
+                    hasMore = true,
+                    sessionId = "app:user"
+                )
+            )
+        }
+
+        var updateCallbackMessages: List<GliaChatMessage>? = null
+        val viewModel = GliaChatViewModel(
+            client = mockClient,
+            onMessagesUpdated = { updateCallbackMessages = it }
+        )
+
+        assertEquals(0, viewModel.uiState.value.messages.size)
+
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.isConnected)
+        assertFalse(viewModel.uiState.value.isLoadingHistory)
+        assertTrue(viewModel.uiState.value.hasMoreHistory)
+        assertEquals(2, viewModel.uiState.value.messages.size)
+        assertEquals("h1", viewModel.uiState.value.messages[0].id)
+        assertEquals("h2", viewModel.uiState.value.messages[1].id)
+        assertNotNull(updateCallbackMessages)
+        assertEquals(2, updateCallbackMessages!!.size)
+    }
+
+    @Test
+    fun testLoadMoreHistoryPagination() = runBlocking {
+        val mockClient = MockGliaClient()
+        var fetchCallCount = 0
+
+        mockClient.historyResultProvider = { limit, beforeSequence ->
+            fetchCallCount++
+            if (fetchCallCount == 1) {
+                // Initial history load
+                Result.success(
+                    GliaHistoryResponse(
+                        messages = listOf(
+                            GliaChatMessage(id = "h3", role = GliaMessageRole.USER, content = "Recent 3", sequence = 3),
+                            GliaChatMessage(id = "h4", role = GliaMessageRole.ASSISTANT, content = "Recent 4", sequence = 4)
+                        ),
+                        hasMore = true
+                    )
+                )
+            } else {
+                // Pagination call: should request beforeSequence = 3
+                assertEquals(3, beforeSequence)
+                Result.success(
+                    GliaHistoryResponse(
+                        messages = listOf(
+                            GliaChatMessage(id = "h1", role = GliaMessageRole.USER, content = "Old 1", sequence = 1),
+                            GliaChatMessage(id = "h2", role = GliaMessageRole.ASSISTANT, content = "Old 2", sequence = 2)
+                        ),
+                        hasMore = false
+                    )
+                )
+            }
+        }
+
+        val viewModel = GliaChatViewModel(client = mockClient)
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.messages.size)
+        assertTrue(viewModel.uiState.value.hasMoreHistory)
+
+        // Trigger pagination
+        viewModel.loadMoreHistory()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // After loading more history, older messages (h1, h2) must be prepended before recent ones (h3, h4)
+        val messages = viewModel.uiState.value.messages
+        assertEquals(4, messages.size)
+        assertEquals("h1", messages[0].id)
+        assertEquals("h2", messages[1].id)
+        assertEquals("h3", messages[2].id)
+        assertEquals("h4", messages[3].id)
+        assertFalse(viewModel.uiState.value.hasMoreHistory)
+    }
+
+    @Test
+    fun testClearMessagesResetsHasMoreHistory() = runBlocking {
+        val mockClient = MockGliaClient()
+        mockClient.historyResultProvider = { _, _ ->
+            Result.success(
+                GliaHistoryResponse(
+                    messages = listOf(GliaChatMessage(role = GliaMessageRole.USER, content = "Test", sequence = 1)),
+                    hasMore = true
+                )
+            )
+        }
+
+        val viewModel = GliaChatViewModel(mockClient)
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.hasMoreHistory)
+        assertEquals(1, viewModel.uiState.value.messages.size)
+
+        viewModel.clearMessages()
+        assertEquals(0, viewModel.uiState.value.messages.size)
+        assertFalse(viewModel.uiState.value.hasMoreHistory)
     }
 }

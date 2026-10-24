@@ -3,11 +3,17 @@ package cl.zea.glia.core.providers.phoenix
 import cl.zea.glia.core.client.AgentProvider
 import cl.zea.glia.core.client.WebSocketConnection
 import cl.zea.glia.core.client.WebSocketConnectionFactory
+import cl.zea.glia.core.client.defaultKtorWebSocketClient
 import cl.zea.glia.core.client.defaultWebSocketConnectionFactory
 import cl.zea.glia.core.models.GliaException
+import cl.zea.glia.core.models.GliaHistoryResponse
 import cl.zea.glia.core.models.GliaOptions
 import cl.zea.glia.core.models.GliaStreamEvent
 import cl.zea.glia.core.models.GliaToolDefinition
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.headers
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +50,8 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 open class ZeaPhoenixProvider(
     val options: GliaOptions,
-    private val connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory
+    private val connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory,
+    private val httpClient: HttpClient = defaultKtorWebSocketClient
 ) : AgentProvider {
 
     constructor(
@@ -55,7 +62,8 @@ open class ZeaPhoenixProvider(
         systemPrompt: String? = null,
         timeoutMs: Long = 60_000L,
         autoReconnect: Boolean = true,
-        connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory
+        connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory,
+        httpClient: HttpClient = defaultKtorWebSocketClient
     ) : this(
         options = GliaOptions(
             gatewayUrl = gatewayUrl,
@@ -66,7 +74,8 @@ open class ZeaPhoenixProvider(
             timeoutMs = timeoutMs,
             autoReconnect = autoReconnect
         ),
-        connectionFactory = connectionFactory
+        connectionFactory = connectionFactory,
+        httpClient = httpClient
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -281,6 +290,103 @@ open class ZeaPhoenixProvider(
         }.toString()
 
         conn.send(frame)
+    }
+
+    /**
+     * Fetches conversation history via Phoenix WebSocket event 'get_history'.
+     */
+    suspend fun fetchHistoryViaWebSocket(
+        limit: Int = 20,
+        beforeSequence: Int? = null
+    ): Result<GliaHistoryResponse> {
+        val conn = connection ?: return Result.failure(GliaException.NotConnected("WebSocket is not connected"))
+        if (!_isConnected.value) {
+            return Result.failure(GliaException.NotConnected("WebSocket is not connected"))
+        }
+
+        val ref = messageRef.getAndIncrement().toString()
+        val deferred = CompletableDeferred<JsonObject>()
+        pendingReplies[ref] = deferred
+
+        val payload = buildJsonObject {
+            put("limit", limit)
+            if (beforeSequence != null) {
+                put("before_sequence", beforeSequence)
+            } else {
+                put("before_sequence", kotlinx.serialization.json.JsonNull)
+            }
+        }
+
+        val frame = buildJsonArray {
+            add(kotlinx.serialization.json.JsonNull)
+            add(kotlinx.serialization.json.JsonPrimitive(ref))
+            add(kotlinx.serialization.json.JsonPrimitive(options.topic))
+            add(kotlinx.serialization.json.JsonPrimitive("get_history"))
+            add(payload)
+        }.toString()
+
+        return try {
+            conn.send(frame)
+            val responseObj = withTimeout(options.timeoutMs) {
+                deferred.await()
+            }
+            val history = json.decodeFromJsonElement(GliaHistoryResponse.serializer(), responseObj)
+            Result.success(history)
+        } catch (e: Exception) {
+            pendingReplies.remove(ref)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Fetches conversation history via REST API fallback:
+     * GET /api/conversations/:session_id/messages?limit=:limit&before_sequence=:seq
+     */
+    suspend fun fetchHistoryViaRest(
+        limit: Int = 20,
+        beforeSequence: Int? = null
+    ): Result<GliaHistoryResponse> {
+        return try {
+            val queryParams = mutableListOf("limit=$limit")
+            if (beforeSequence != null) {
+                queryParams.add("before_sequence=$beforeSequence")
+            }
+            val queryString = queryParams.joinToString("&")
+            val url = "${options.httpUrl}/api/conversations/${options.sessionId}/messages?$queryString"
+
+            val httpResponse = httpClient.get(url) {
+                headers {
+                    options.effectiveHeaders.forEach { (k, v) -> append(k, v) }
+                }
+            }
+
+            if (httpResponse.status.value in 200..299) {
+                val body = httpResponse.bodyAsText()
+                val history = json.decodeFromString(GliaHistoryResponse.serializer(), body)
+                Result.success(history)
+            } else {
+                val errorBody = try { httpResponse.bodyAsText() } catch (_: Exception) { "" }
+                Result.failure(GliaException.ServerError("REST error ${httpResponse.status.value}: $errorBody"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Attempts to fetch conversation history via WebSocket first; falls back to REST if socket is not connected or fails.
+     */
+    override suspend fun fetchHistory(
+        limit: Int,
+        beforeSequence: Int?
+    ): Result<GliaHistoryResponse> {
+        if (_isConnected.value && connection != null) {
+            val wsResult = fetchHistoryViaWebSocket(limit, beforeSequence)
+            if (wsResult.isSuccess) {
+                return wsResult
+            }
+        }
+        return fetchHistoryViaRest(limit, beforeSequence)
     }
 
     private suspend fun handleIncomingMessage(text: String) {
