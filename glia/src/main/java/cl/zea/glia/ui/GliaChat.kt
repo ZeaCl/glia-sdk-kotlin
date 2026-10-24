@@ -96,8 +96,9 @@ fun GliaChat(
         }
     }
 
-    // Optimized auto-scroll: Animated on new message addition
-    LaunchedEffect(uiState.messages.size) {
+    // Optimized auto-scroll: Animated on new bottom message addition
+    val lastMessageId = uiState.messages.lastOrNull()?.id
+    LaunchedEffect(lastMessageId) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
@@ -129,14 +130,26 @@ fun GliaChat(
                 .fillMaxWidth()
         ) {
             if (uiState.messages.isEmpty() && !uiState.isStreaming) {
-                WelcomeView(
-                    welcomeMessage = welcomeMessage,
-                    suggestedPrompts = suggestedPrompts,
-                    theme = theme,
-                    onPromptClick = { prompt ->
-                        viewModel.send(prompt, systemPrompt, tools)
+                if (uiState.isLoadingHistory) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = theme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
                     }
-                )
+                } else {
+                    WelcomeView(
+                        welcomeMessage = welcomeMessage,
+                        suggestedPrompts = suggestedPrompts,
+                        theme = theme,
+                        onPromptClick = { prompt ->
+                            viewModel.send(prompt, systemPrompt, tools)
+                        }
+                    )
+                }
             } else {
                 LazyColumn(
                     state = listState,
@@ -145,6 +158,36 @@ fun GliaChat(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (uiState.hasMoreHistory) {
+                        item(key = "load_more_history_header") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (uiState.isLoadingHistory) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = theme.primary,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Cargar mensajes anteriores",
+                                        color = theme.primary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier
+                                            .clickable { viewModel.loadMoreHistory() }
+                                            .testTag("load_more_history_button")
+                                            .padding(6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     items(uiState.messages, key = { it.id }) { msg ->
                         MessageBubble(message = msg, theme = theme)
                     }
