@@ -82,5 +82,6 @@ class GliaClient private constructor(
  */
 open class PhoenixAgentClient(
     options: GliaOptions,
-    connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory
-) : ZeaPhoenixProvider(options, connectionFactory)
+    connectionFactory: WebSocketConnectionFactory = defaultWebSocketConnectionFactory,
+    httpClient: io.ktor.client.HttpClient = defaultKtorWebSocketClient
+) : ZeaPhoenixProvider(options, connectionFactory, httpClient)

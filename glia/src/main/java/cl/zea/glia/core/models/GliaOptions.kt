@@ -24,10 +24,11 @@ data class GliaOptions(
     val reconnectMaxDelayMs: Long = 30_000L,
     val headers: Map<String, String> = emptyMap(),
     val backendType: GliaBackendType = GliaBackendType.PHOENIX,
-    val sendTokenInQuery: Boolean = false
+    val sendTokenInQuery: Boolean = false,
+    val sessionId: String = "$appId:$userId"
 ) {
     val topic: String
-        get() = "session:$appId:$userId"
+        get() = "session:$sessionId"
 
     val effectiveHeaders: Map<String, String>
         get() {
@@ -50,7 +51,11 @@ data class GliaOptions(
             var path = baseAndQuery[0].trimEnd('/')
             val existingQuery = if (baseAndQuery.size > 1) baseAndQuery[1] else ""
 
-            if (!path.endsWith("/socket/websocket")) {
+            if (path.endsWith("/socket/websocket")) {
+                // already has full websocket path
+            } else if (path.endsWith("/socket")) {
+                path = "$path/websocket"
+            } else {
                 path = "$path/socket/websocket"
             }
 
@@ -62,5 +67,22 @@ data class GliaOptions(
             val queryString = if (queryParts.isNotEmpty()) "?" + queryParts.joinToString("&") else ""
 
             return "$finalScheme$path$queryString"
+        }
+
+    val httpUrl: String
+        get() {
+            var clean = gatewayUrl.trimEnd('/')
+            val isHttp = clean.startsWith("http://") || clean.startsWith("ws://")
+            val scheme = if (isHttp) "http://" else "https://"
+            clean = clean.removePrefix("https://").removePrefix("http://").removePrefix("wss://").removePrefix("ws://")
+
+            val baseAndQuery = clean.split("?", limit = 2)
+            var path = baseAndQuery[0].trimEnd('/')
+            if (path.endsWith("/socket/websocket")) {
+                path = path.removeSuffix("/socket/websocket")
+            } else if (path.endsWith("/socket")) {
+                path = path.removeSuffix("/socket")
+            }
+            return "$scheme$path".trimEnd('/')
         }
 }

@@ -1,5 +1,6 @@
 package cl.zea.glia.core.client
 
+import cl.zea.glia.core.models.GliaHistoryResponse
 import cl.zea.glia.core.models.GliaStreamEvent
 import cl.zea.glia.core.models.GliaToolDefinition
 import kotlinx.coroutines.flow.SharedFlow
@@ -40,6 +41,20 @@ interface AgentProvider : Closeable {
         prompt: String,
         systemPrompt: String? = null,
         tools: List<GliaToolDefinition> = emptyList()
+    )
+
+    /**
+     * Fetches historical conversation messages.
+     *
+     * @param limit Maximum number of messages to return (default: 20).
+     * @param beforeSequence Optional sequence number cursor for backward pagination.
+     * @return Result containing [GliaHistoryResponse] or failure.
+     */
+    suspend fun fetchHistory(
+        limit: Int = 20,
+        beforeSequence: Int? = null
+    ): Result<GliaHistoryResponse> = Result.failure(
+        UnsupportedOperationException("fetchHistory is not supported by this provider")
     )
 }
 
