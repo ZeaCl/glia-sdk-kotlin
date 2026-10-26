@@ -516,7 +516,7 @@ private fun InputArea(
             .fillMaxWidth()
             .background(theme.surface)
             .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Bottom
     ) {
         OutlinedTextField(
             value = text,
@@ -531,14 +531,17 @@ private fun InputArea(
                 focusedBorderColor = theme.primary,
                 unfocusedBorderColor = theme.surfaceContainerHigh
             ),
-            shape = RoundedCornerShape(20.dp),
-            singleLine = true
+            shape = RoundedCornerShape(22.dp),
+            minLines = 1,
+            maxLines = 5
         )
         Spacer(modifier = Modifier.width(8.dp))
         IconButton(
             onClick = onSend,
             enabled = text.isNotBlank() && !isStreaming,
-            modifier = Modifier.testTag("send_button")
+            modifier = Modifier
+                .testTag("send_button")
+                .padding(bottom = 4.dp)
         ) {
             if (isStreaming) {
                 CircularProgressIndicator(
