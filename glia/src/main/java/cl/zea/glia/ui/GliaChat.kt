@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Build
@@ -55,6 +56,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cl.zea.glia.core.models.GliaToolDefinition
@@ -248,9 +250,11 @@ fun GliaChat(
             isStreaming = uiState.isStreaming,
             theme = theme,
             onSend = {
-                val toSend = inputText
-                inputText = ""
-                viewModel.send(toSend, systemPrompt, tools)
+                val toSend = inputText.trimEnd()
+                if (toSend.isNotBlank() && !uiState.isStreaming) {
+                    inputText = ""
+                    viewModel.send(toSend, systemPrompt, tools)
+                }
             }
         )
     }
@@ -533,12 +537,13 @@ private fun InputArea(
             ),
             shape = RoundedCornerShape(22.dp),
             minLines = 1,
-            maxLines = 5
+            maxLines = 5,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
         )
         Spacer(modifier = Modifier.width(8.dp))
         IconButton(
             onClick = onSend,
-            enabled = text.isNotBlank() && !isStreaming,
+            enabled = text.trimEnd().isNotBlank() && !isStreaming,
             modifier = Modifier
                 .testTag("send_button")
                 .padding(bottom = 4.dp)
