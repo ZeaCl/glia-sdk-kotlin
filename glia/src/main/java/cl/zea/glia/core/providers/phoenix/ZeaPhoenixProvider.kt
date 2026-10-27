@@ -148,6 +148,7 @@ open class ZeaPhoenixProvider(
                 deferred.await()
             }
             _isConnected.value = true
+            _events.emit(GliaStreamEvent.Status("connected"))
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             pendingReplies.remove(ref)
             throw GliaException.ConnectionTimeout()
@@ -200,8 +201,13 @@ open class ZeaPhoenixProvider(
 
     private fun handleUnexpectedDisconnection(error: Exception) {
         cancelInternalConnection()
+        val hadPending = pendingReplies.isNotEmpty()
         scope.launch {
-            _events.emit(GliaStreamEvent.Error("WebSocket error: ${error.localizedMessage ?: "disconnection"}"))
+            if (hadPending) {
+                _events.emit(GliaStreamEvent.Error("WebSocket error: ${error.localizedMessage ?: "disconnection"}"))
+            } else {
+                _events.emit(GliaStreamEvent.Status("disconnected"))
+            }
         }
 
         // Fail pending continuations
