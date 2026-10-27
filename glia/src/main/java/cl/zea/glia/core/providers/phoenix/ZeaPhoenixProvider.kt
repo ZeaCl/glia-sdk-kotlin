@@ -42,6 +42,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -85,6 +86,7 @@ open class ZeaPhoenixProvider(
     private var reconnectJob: Job? = null
     private var isVoluntaryDisconnect = false
     private var reconnectAttempts = 0
+    private val isRunActive = AtomicBoolean(false)
 
     private val _isConnected = MutableStateFlow(false)
     override val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
@@ -148,6 +150,7 @@ open class ZeaPhoenixProvider(
                 deferred.await()
             }
             _isConnected.value = true
+            _events.emit(GliaStreamEvent.Status("connected"))
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             pendingReplies.remove(ref)
             throw GliaException.ConnectionTimeout()
@@ -200,9 +203,17 @@ open class ZeaPhoenixProvider(
 
     private fun handleUnexpectedDisconnection(error: Exception) {
         cancelInternalConnection()
+        // A run is "pending" if we have in-flight RPC replies OR the agent is actively
+        // streaming a response (fire-and-forget "run" events are not tracked in pendingReplies).
+        val hadPending = pendingReplies.isNotEmpty() || isRunActive.get()
         scope.launch {
-            _events.emit(GliaStreamEvent.Error("WebSocket error: ${error.localizedMessage ?: "disconnection"}"))
+            if (hadPending) {
+                _events.emit(GliaStreamEvent.Error("WebSocket error: ${error.localizedMessage ?: "disconnection"}"))
+            } else {
+                _events.emit(GliaStreamEvent.Status("disconnected"))
+            }
         }
+        isRunActive.set(false)
 
         // Fail pending continuations
         for ((_, deferred) in pendingReplies) {
@@ -290,6 +301,7 @@ open class ZeaPhoenixProvider(
         }.toString()
 
         conn.send(frame)
+        isRunActive.set(true)
     }
 
     /**
@@ -428,6 +440,9 @@ open class ZeaPhoenixProvider(
                 }
                 "status" -> {
                     val status = payload["status"]?.jsonPrimitive?.content ?: ""
+                    if (status == "idle") {
+                        isRunActive.set(false)
+                    }
                     _events.emit(GliaStreamEvent.Status(status))
                 }
                 "thinking_delta" -> {
@@ -451,10 +466,12 @@ open class ZeaPhoenixProvider(
                 "done" -> {
                     val fullMsg = payload["text"]?.jsonPrimitive?.content
                         ?: payload["full_message"]?.jsonPrimitive?.content
+                    isRunActive.set(false)
                     _events.emit(GliaStreamEvent.Done(fullMsg))
                 }
                 "error" -> {
                     val msg = payload["message"]?.jsonPrimitive?.content ?: "Unknown error"
+                    isRunActive.set(false)
                     _events.emit(GliaStreamEvent.Error(msg))
                 }
             }

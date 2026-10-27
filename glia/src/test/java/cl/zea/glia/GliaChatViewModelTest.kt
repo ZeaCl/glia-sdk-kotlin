@@ -497,4 +497,56 @@ class GliaChatViewModelTest {
         val sanitizedServerErr = errorMethod.invoke(viewModel, serverErrorException) as String
         assertEquals(GliaChatViewModel.DEFAULT_ERROR_MESSAGE, sanitizedServerErr)
     }
+
+    @Test
+    fun testDisconnectionDuringStreamingResetsIsStreamingAndSetsError() = runBlocking {
+        val mockClient = MockGliaClient()
+        val viewModel = GliaChatViewModel(mockClient)
+
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isConnected)
+
+        // Start sending a message
+        viewModel.send("Hola, ¿cómo estás?")
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isStreaming)
+
+        // Simulate disconnection while receiving streaming
+        mockClient.emit(GliaStreamEvent.Status("disconnected"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Must release the streaming state so the UI is not blocked
+        assertFalse(viewModel.uiState.value.isStreaming)
+        assertNotNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun testIdleDisconnectionDoesNotTriggerErrorMessageAndReconnectClearsIt() = runBlocking {
+        val mockClient = MockGliaClient()
+        val viewModel = GliaChatViewModel(mockClient)
+
+        viewModel.errorSanitizer = {
+            "Estamos con problemas y en estos momentos no podemos atender su solicitud."
+        }
+
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isConnected)
+
+        // Simulate idle disconnection (e.g. phone went to sleep, socket closed)
+        mockClient.emit(GliaStreamEvent.Status("disconnected"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Must NOT show error banner when idle disconnection occurs
+        assertFalse(viewModel.uiState.value.isConnected)
+        assertNull(viewModel.uiState.value.errorMessage)
+
+        // Simulate successful reconnection (e.g. returning to foreground)
+        mockClient.emit(GliaStreamEvent.Status("connected"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.isConnected)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
 }

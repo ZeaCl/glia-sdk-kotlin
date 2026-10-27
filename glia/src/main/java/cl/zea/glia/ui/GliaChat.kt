@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -528,6 +529,7 @@ private fun InputArea(
             placeholder = { Text(placeholder, color = theme.textMuted) },
             modifier = Modifier
                 .weight(1f)
+                .defaultMinSize(minHeight = 52.dp)
                 .testTag("chat_input"),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = theme.text,
@@ -535,7 +537,7 @@ private fun InputArea(
                 focusedBorderColor = theme.primary,
                 unfocusedBorderColor = theme.surfaceContainerHigh
             ),
-            shape = RoundedCornerShape(22.dp),
+            shape = RoundedCornerShape(26.dp),
             minLines = 1,
             maxLines = 5,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)

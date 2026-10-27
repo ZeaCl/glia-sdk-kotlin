@@ -48,7 +48,7 @@ afterEvaluate {
             register<MavenPublication>("release") {
                 groupId = "cl.zea"
                 artifactId = "glia"
-                version = "0.5.0"
+                version = "0.5.1"
 
                 from(components["release"])
             }

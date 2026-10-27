@@ -148,6 +148,7 @@ class GliaChatViewModel(
         viewModelScope.launch {
             try {
                 client.connect()
+                _uiState.update { it.copy(isConnected = true, errorMessage = null) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = formatError(e)) }
             }
@@ -240,6 +241,20 @@ class GliaChatViewModel(
             is GliaStreamEvent.Status -> {
                 if (event.status == "idle" && !_uiState.value.isStreaming) {
                     _uiState.update { it.copy(currentTool = null) }
+                } else if (event.status == "disconnected") {
+                    _uiState.update { state ->
+                        if (state.isStreaming) {
+                            state.copy(
+                                isConnected = false,
+                                isStreaming = false,
+                                errorMessage = formatError(cl.zea.glia.core.models.GliaException.ConnectionClosed("Connection lost while streaming"))
+                            )
+                        } else {
+                            state.copy(isConnected = false)
+                        }
+                    }
+                } else if (event.status == "connected") {
+                    _uiState.update { it.copy(isConnected = true, errorMessage = null) }
                 }
             }
             is GliaStreamEvent.ThinkingDelta -> {
