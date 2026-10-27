@@ -499,6 +499,29 @@ class GliaChatViewModelTest {
     }
 
     @Test
+    fun testDisconnectionDuringStreamingResetsIsStreamingAndSetsError() = runBlocking {
+        val mockClient = MockGliaClient()
+        val viewModel = GliaChatViewModel(mockClient)
+
+        viewModel.connect()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isConnected)
+
+        // Start sending a message
+        viewModel.send("Hola, ¿cómo estás?")
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isStreaming)
+
+        // Simulate disconnection while receiving streaming
+        mockClient.emit(GliaStreamEvent.Status("disconnected"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Must release the streaming state so the UI is not blocked
+        assertFalse(viewModel.uiState.value.isStreaming)
+        assertNotNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun testIdleDisconnectionDoesNotTriggerErrorMessageAndReconnectClearsIt() = runBlocking {
         val mockClient = MockGliaClient()
         val viewModel = GliaChatViewModel(mockClient)
